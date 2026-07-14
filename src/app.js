@@ -27,6 +27,8 @@ import adminRouter from "./routes/admin.route.js";
 import expenseRouter from "./routes/expense.route.js";
 import stockAuditLogRouter from "./routes/stockAuditLog.route.js";
 import saleReportRouter from "./routes/saleReport.route.js";
+import aiSaleReportRouter from "./routes/aiSaleReport.route.js";
+import aiChatRouter from "./routes/aiChat.route.js";
 import shopSettingRouter from "./routes/shopSetting.route.js";
 const app = express();
 app.use(
@@ -63,6 +65,8 @@ app.use("/api/v1", adminRouter);
 app.use("/api/v1", expenseRouter);
 app.use("/api/v1", stockAuditLogRouter);
 app.use("/api/v1", saleReportRouter);
+app.use("/api/v1", aiSaleReportRouter);
+app.use("/api/v1", aiChatRouter);
 app.use("/api/v1", shopSettingRouter);
 //404-Error Handler
 app.all("/*any", (req, res, next) => {
