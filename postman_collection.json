@@ -1,7 +1,7 @@
 {
   "info": {
-    "name": "i-MAX POS API",
-    "description": "Complete API collection for i-MAX POS (Car Showroom / Warehouse / Supplier POS system).\n\n## Authentication\n- Call **POST /api/v1/admin/login** with valid credentials to get a token.\n- Token is automatically saved to the `token` environment variable via the login test script.\n- All protected routes use `Bearer {{token}}` in the Authorization header.\n\n## Permissions\n- `owner` — full access to everything\n- `admin` — most CRUD operations\n- `cashier` — limited to order creation, reading inventory, sales reports\n\n## Environment Variables\n- `baseUrl` — API base URL (default: http://localhost:5000)",
+    "name": "Auto Shop POS API",
+    "description": "Complete API collection for Auto Shop POS (Car Showroom / Warehouse / Supplier POS system).\n\n## Authentication\n- Call **POST /api/v1/admin/login** with valid credentials to get a token.\n- Token is automatically saved to the `token` environment variable via the login test script.\n- All protected routes use `Bearer {{token}}` in the Authorization header.\n\n## Permissions\n- `owner` — full access to everything\n- `admin` — most CRUD operations\n- `cashier` — limited to order creation, reading inventory, sales reports\n\n## Environment Variables\n- `baseUrl` — API base URL (default: http://localhost:5000)",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -68,9 +68,7 @@
           "name": "Get All Accounts",
           "request": {
             "method": "GET",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" }
-            ],
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": {
               "raw": "{{baseUrl}}/api/v1/admin",
               "host": ["{{baseUrl}}"],
@@ -84,15 +82,17 @@
           "name": "Get Account By ID",
           "request": {
             "method": "GET",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" }
-            ],
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": {
               "raw": "{{baseUrl}}/api/v1/admin/:accountId",
               "host": ["{{baseUrl}}"],
               "path": ["api", "v1", "admin", ":accountId"],
               "variable": [
-                { "key": "accountId", "value": "<account_object_id>", "description": "Account ID" }
+                {
+                  "key": "accountId",
+                  "value": "<account_object_id>",
+                  "description": "Account ID"
+                }
               ]
             },
             "description": "Get a single admin account by ID."
@@ -116,7 +116,11 @@
               "host": ["{{baseUrl}}"],
               "path": ["api", "v1", "admin", ":accountId"],
               "variable": [
-                { "key": "accountId", "value": "<account_object_id>", "description": "Account ID" }
+                {
+                  "key": "accountId",
+                  "value": "<account_object_id>",
+                  "description": "Account ID"
+                }
               ]
             },
             "description": "Update account name, role, or locationId. Requires owner role."
@@ -140,7 +144,11 @@
               "host": ["{{baseUrl}}"],
               "path": ["api", "v1", "admin", "update-password", ":accountId"],
               "variable": [
-                { "key": "accountId", "value": "<account_object_id>", "description": "Account ID" }
+                {
+                  "key": "accountId",
+                  "value": "<account_object_id>",
+                  "description": "Account ID"
+                }
               ]
             },
             "description": "Update password for an account. Requires owner role."
@@ -151,15 +159,17 @@
           "name": "Soft Delete",
           "request": {
             "method": "PATCH",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" }
-            ],
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": {
               "raw": "{{baseUrl}}/api/v1/admin/soft-delete/:accountId",
               "host": ["{{baseUrl}}"],
               "path": ["api", "v1", "admin", "soft-delete", ":accountId"],
               "variable": [
-                { "key": "accountId", "value": "<account_object_id>", "description": "Account ID" }
+                {
+                  "key": "accountId",
+                  "value": "<account_object_id>",
+                  "description": "Account ID"
+                }
               ]
             },
             "description": "Soft delete (deactivate) an account. Requires owner role."
@@ -170,15 +180,17 @@
           "name": "Restore Account",
           "request": {
             "method": "PATCH",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" }
-            ],
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": {
               "raw": "{{baseUrl}}/api/v1/admin/restore/:accountId",
               "host": ["{{baseUrl}}"],
               "path": ["api", "v1", "admin", "restore", ":accountId"],
               "variable": [
-                { "key": "accountId", "value": "<account_object_id>", "description": "Account ID" }
+                {
+                  "key": "accountId",
+                  "value": "<account_object_id>",
+                  "description": "Account ID"
+                }
               ]
             },
             "description": "Restore a soft-deleted account. Requires owner role."
@@ -189,15 +201,17 @@
           "name": "Delete Account (Hard)",
           "request": {
             "method": "DELETE",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" }
-            ],
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": {
               "raw": "{{baseUrl}}/api/v1/admin/:accountId",
               "host": ["{{baseUrl}}"],
               "path": ["api", "v1", "admin", ":accountId"],
               "variable": [
-                { "key": "accountId", "value": "<account_object_id>", "description": "Account ID" }
+                {
+                  "key": "accountId",
+                  "value": "<account_object_id>",
+                  "description": "Account ID"
+                }
               ]
             },
             "description": "Permanently delete an account. Requires owner role."
@@ -235,9 +249,7 @@
           "name": "Get All Warehouse Profiles",
           "request": {
             "method": "GET",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" }
-            ],
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": {
               "raw": "{{baseUrl}}/api/v1/warehouse-profile",
               "host": ["{{baseUrl}}"],
@@ -251,15 +263,17 @@
           "name": "Get Warehouse Profile By ID",
           "request": {
             "method": "GET",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" }
-            ],
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": {
               "raw": "{{baseUrl}}/api/v1/warehouse-profile/:id",
               "host": ["{{baseUrl}}"],
               "path": ["api", "v1", "warehouse-profile", ":id"],
               "variable": [
-                { "key": "id", "value": "<warehouse_object_id>", "description": "Warehouse profile ID" }
+                {
+                  "key": "id",
+                  "value": "<warehouse_object_id>",
+                  "description": "Warehouse profile ID"
+                }
               ]
             },
             "description": "Get a single warehouse profile by ID."
@@ -283,7 +297,11 @@
               "host": ["{{baseUrl}}"],
               "path": ["api", "v1", "warehouse-profile", ":id"],
               "variable": [
-                { "key": "id", "value": "<warehouse_object_id>", "description": "Warehouse profile ID" }
+                {
+                  "key": "id",
+                  "value": "<warehouse_object_id>",
+                  "description": "Warehouse profile ID"
+                }
               ]
             },
             "description": "Update a warehouse profile. Requires owner role."
@@ -321,9 +339,7 @@
           "name": "Get All Storefront Profiles",
           "request": {
             "method": "GET",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" }
-            ],
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": {
               "raw": "{{baseUrl}}/api/v1/storefront-profile",
               "host": ["{{baseUrl}}"],
@@ -337,15 +353,17 @@
           "name": "Get Storefront Profile By ID",
           "request": {
             "method": "GET",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" }
-            ],
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": {
               "raw": "{{baseUrl}}/api/v1/storefront-profile/:id",
               "host": ["{{baseUrl}}"],
               "path": ["api", "v1", "storefront-profile", ":id"],
               "variable": [
-                { "key": "id", "value": "<storefront_object_id>", "description": "Storefront profile ID" }
+                {
+                  "key": "id",
+                  "value": "<storefront_object_id>",
+                  "description": "Storefront profile ID"
+                }
               ]
             },
             "description": "Get a single storefront profile by ID."
@@ -369,7 +387,11 @@
               "host": ["{{baseUrl}}"],
               "path": ["api", "v1", "storefront-profile", ":id"],
               "variable": [
-                { "key": "id", "value": "<storefront_object_id>", "description": "Storefront profile ID" }
+                {
+                  "key": "id",
+                  "value": "<storefront_object_id>",
+                  "description": "Storefront profile ID"
+                }
               ]
             },
             "description": "Update a storefront profile. Requires owner role."
@@ -386,9 +408,7 @@
           "name": "Get All Location Profiles",
           "request": {
             "method": "GET",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" }
-            ],
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": {
               "raw": "{{baseUrl}}/api/v1/location-profile",
               "host": ["{{baseUrl}}"],
@@ -402,15 +422,17 @@
           "name": "Get Location Profile By ID",
           "request": {
             "method": "GET",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" }
-            ],
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": {
               "raw": "{{baseUrl}}/api/v1/location-profile/:id",
               "host": ["{{baseUrl}}"],
               "path": ["api", "v1", "location-profile", ":id"],
               "variable": [
-                { "key": "id", "value": "<location_object_id>", "description": "Location profile ID" }
+                {
+                  "key": "id",
+                  "value": "<location_object_id>",
+                  "description": "Location profile ID"
+                }
               ]
             },
             "description": "Get a single location profile by ID."
@@ -448,9 +470,7 @@
           "name": "Get All Inventory",
           "request": {
             "method": "GET",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" }
-            ],
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": {
               "raw": "{{baseUrl}}/api/v1/inventory",
               "host": ["{{baseUrl}}"],
@@ -464,15 +484,17 @@
           "name": "Get Inventory By ID",
           "request": {
             "method": "GET",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" }
-            ],
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": {
               "raw": "{{baseUrl}}/api/v1/inventory/:id",
               "host": ["{{baseUrl}}"],
               "path": ["api", "v1", "inventory", ":id"],
               "variable": [
-                { "key": "id", "value": "<inventory_object_id>", "description": "Inventory item ID" }
+                {
+                  "key": "id",
+                  "value": "<inventory_object_id>",
+                  "description": "Inventory item ID"
+                }
               ]
             },
             "description": "Get a single inventory product by ID."
@@ -496,7 +518,11 @@
               "host": ["{{baseUrl}}"],
               "path": ["api", "v1", "inventory", ":id"],
               "variable": [
-                { "key": "id", "value": "<inventory_object_id>", "description": "Inventory item ID" }
+                {
+                  "key": "id",
+                  "value": "<inventory_object_id>",
+                  "description": "Inventory item ID"
+                }
               ]
             },
             "description": "Update inventory product metadata. Requires owner role."
@@ -507,13 +533,16 @@
           "name": "Import Inventory from Excel",
           "request": {
             "method": "POST",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" }
-            ],
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "body": {
               "mode": "formdata",
               "formdata": [
-                { "key": "file", "type": "file", "src": "", "description": "Excel file (.xlsx, .xls, .csv) — max 5MB" }
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "",
+                  "description": "Excel file (.xlsx, .xls, .csv) — max 5MB"
+                }
               ]
             },
             "url": {
@@ -529,9 +558,7 @@
           "name": "Get All Categories",
           "request": {
             "method": "GET",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" }
-            ],
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": {
               "raw": "{{baseUrl}}/api/v1/inventory/categories",
               "host": ["{{baseUrl}}"],
@@ -572,9 +599,7 @@
           "name": "Get All Suppliers",
           "request": {
             "method": "GET",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" }
-            ],
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": {
               "raw": "{{baseUrl}}/api/v1/supplier-profile",
               "host": ["{{baseUrl}}"],
@@ -588,15 +613,17 @@
           "name": "Get Supplier By ID",
           "request": {
             "method": "GET",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" }
-            ],
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": {
               "raw": "{{baseUrl}}/api/v1/supplier-profile/:id",
               "host": ["{{baseUrl}}"],
               "path": ["api", "v1", "supplier-profile", ":id"],
               "variable": [
-                { "key": "id", "value": "<supplier_object_id>", "description": "Supplier profile ID" }
+                {
+                  "key": "id",
+                  "value": "<supplier_object_id>",
+                  "description": "Supplier profile ID"
+                }
               ]
             },
             "description": "Get a single supplier profile by ID."
@@ -620,7 +647,11 @@
               "host": ["{{baseUrl}}"],
               "path": ["api", "v1", "supplier-profile", ":id"],
               "variable": [
-                { "key": "id", "value": "<supplier_object_id>", "description": "Supplier profile ID" }
+                {
+                  "key": "id",
+                  "value": "<supplier_object_id>",
+                  "description": "Supplier profile ID"
+                }
               ]
             },
             "description": "Update a supplier profile. Requires owner role."
@@ -631,15 +662,17 @@
           "name": "Soft Delete Supplier",
           "request": {
             "method": "PATCH",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" }
-            ],
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": {
               "raw": "{{baseUrl}}/api/v1/supplier-profile/:id/soft-delete",
               "host": ["{{baseUrl}}"],
               "path": ["api", "v1", "supplier-profile", ":id", "soft-delete"],
               "variable": [
-                { "key": "id", "value": "<supplier_object_id>", "description": "Supplier profile ID" }
+                {
+                  "key": "id",
+                  "value": "<supplier_object_id>",
+                  "description": "Supplier profile ID"
+                }
               ]
             },
             "description": "Soft delete a supplier profile. Requires owner role."
@@ -650,15 +683,17 @@
           "name": "Restore Supplier",
           "request": {
             "method": "PATCH",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" }
-            ],
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": {
               "raw": "{{baseUrl}}/api/v1/supplier-profile/:id/restore",
               "host": ["{{baseUrl}}"],
               "path": ["api", "v1", "supplier-profile", ":id", "restore"],
               "variable": [
-                { "key": "id", "value": "<supplier_object_id>", "description": "Supplier profile ID" }
+                {
+                  "key": "id",
+                  "value": "<supplier_object_id>",
+                  "description": "Supplier profile ID"
+                }
               ]
             },
             "description": "Restore a soft-deleted supplier. Requires owner role."
@@ -669,15 +704,17 @@
           "name": "Delete Supplier (Hard)",
           "request": {
             "method": "DELETE",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" }
-            ],
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": {
               "raw": "{{baseUrl}}/api/v1/supplier-profile/:id",
               "host": ["{{baseUrl}}"],
               "path": ["api", "v1", "supplier-profile", ":id"],
               "variable": [
-                { "key": "id", "value": "<supplier_object_id>", "description": "Supplier profile ID" }
+                {
+                  "key": "id",
+                  "value": "<supplier_object_id>",
+                  "description": "Supplier profile ID"
+                }
               ]
             },
             "description": "Permanently delete a supplier profile. Requires owner role."
@@ -715,9 +752,7 @@
           "name": "Get All Purchase Orders",
           "request": {
             "method": "GET",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" }
-            ],
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": {
               "raw": "{{baseUrl}}/api/v1/purchase",
               "host": ["{{baseUrl}}"],
@@ -731,15 +766,17 @@
           "name": "Get Purchase Order By ID",
           "request": {
             "method": "GET",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" }
-            ],
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": {
               "raw": "{{baseUrl}}/api/v1/purchase/:id",
               "host": ["{{baseUrl}}"],
               "path": ["api", "v1", "purchase", ":id"],
               "variable": [
-                { "key": "id", "value": "<purchase_object_id>", "description": "Purchase Order ID" }
+                {
+                  "key": "id",
+                  "value": "<purchase_object_id>",
+                  "description": "Purchase Order ID"
+                }
               ]
             },
             "description": "Get a single purchase order by ID."
@@ -763,7 +800,11 @@
               "host": ["{{baseUrl}}"],
               "path": ["api", "v1", "purchase", ":id", "status"],
               "variable": [
-                { "key": "id", "value": "<purchase_object_id>", "description": "Purchase Order ID" }
+                {
+                  "key": "id",
+                  "value": "<purchase_object_id>",
+                  "description": "Purchase Order ID"
+                }
               ]
             },
             "description": "Update purchase order status. Valid values: pending, confirmed, arrived, cancelled, completed."
@@ -774,15 +815,17 @@
           "name": "Soft Delete Purchase",
           "request": {
             "method": "PATCH",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" }
-            ],
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": {
               "raw": "{{baseUrl}}/api/v1/purchase/:id/soft-delete",
               "host": ["{{baseUrl}}"],
               "path": ["api", "v1", "purchase", ":id", "soft-delete"],
               "variable": [
-                { "key": "id", "value": "<purchase_object_id>", "description": "Purchase Order ID" }
+                {
+                  "key": "id",
+                  "value": "<purchase_object_id>",
+                  "description": "Purchase Order ID"
+                }
               ]
             },
             "description": "Soft delete a purchase order. Requires owner role."
@@ -793,15 +836,17 @@
           "name": "Restore Purchase",
           "request": {
             "method": "PATCH",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" }
-            ],
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": {
               "raw": "{{baseUrl}}/api/v1/purchase/:id/restore",
               "host": ["{{baseUrl}}"],
               "path": ["api", "v1", "purchase", ":id", "restore"],
               "variable": [
-                { "key": "id", "value": "<purchase_object_id>", "description": "Purchase Order ID" }
+                {
+                  "key": "id",
+                  "value": "<purchase_object_id>",
+                  "description": "Purchase Order ID"
+                }
               ]
             },
             "description": "Restore a soft-deleted purchase order. Requires owner role."
@@ -839,9 +884,7 @@
           "name": "Get All GRNs",
           "request": {
             "method": "GET",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" }
-            ],
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": {
               "raw": "{{baseUrl}}/api/v1/grn",
               "host": ["{{baseUrl}}"],
@@ -855,15 +898,17 @@
           "name": "Get GRN By ID",
           "request": {
             "method": "GET",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" }
-            ],
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": {
               "raw": "{{baseUrl}}/api/v1/grn/:id",
               "host": ["{{baseUrl}}"],
               "path": ["api", "v1", "grn", ":id"],
               "variable": [
-                { "key": "id", "value": "<grn_object_id>", "description": "GRN ID" }
+                {
+                  "key": "id",
+                  "value": "<grn_object_id>",
+                  "description": "GRN ID"
+                }
               ]
             },
             "description": "Get a single GRN by ID."
@@ -887,7 +932,11 @@
               "host": ["{{baseUrl}}"],
               "path": ["api", "v1", "grn", ":id", "status"],
               "variable": [
-                { "key": "id", "value": "<grn_object_id>", "description": "GRN ID" }
+                {
+                  "key": "id",
+                  "value": "<grn_object_id>",
+                  "description": "GRN ID"
+                }
               ]
             },
             "description": "Update GRN status. Valid values: pending, partial, verified, rejected."
@@ -911,7 +960,11 @@
               "host": ["{{baseUrl}}"],
               "path": ["api", "v1", "grn", ":id", "line-items"],
               "variable": [
-                { "key": "id", "value": "<grn_object_id>", "description": "GRN ID" }
+                {
+                  "key": "id",
+                  "value": "<grn_object_id>",
+                  "description": "GRN ID"
+                }
               ]
             },
             "description": "Update line items in a GRN."
@@ -949,9 +1002,7 @@
           "name": "Get All Warehouse Stock",
           "request": {
             "method": "GET",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" }
-            ],
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": {
               "raw": "{{baseUrl}}/api/v1/warehouse",
               "host": ["{{baseUrl}}"],
@@ -965,15 +1016,17 @@
           "name": "Get Warehouse Stock By ID",
           "request": {
             "method": "GET",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" }
-            ],
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": {
               "raw": "{{baseUrl}}/api/v1/warehouse/:id",
               "host": ["{{baseUrl}}"],
               "path": ["api", "v1", "warehouse", ":id"],
               "variable": [
-                { "key": "id", "value": "<warehouse_stock_object_id>", "description": "Warehouse stock record ID" }
+                {
+                  "key": "id",
+                  "value": "<warehouse_stock_object_id>",
+                  "description": "Warehouse stock record ID"
+                }
               ]
             },
             "description": "Get a single warehouse stock record by ID."
@@ -997,7 +1050,11 @@
               "host": ["{{baseUrl}}"],
               "path": ["api", "v1", "warehouse", ":id", "quantity"],
               "variable": [
-                { "key": "id", "value": "<warehouse_stock_object_id>", "description": "Warehouse stock record ID" }
+                {
+                  "key": "id",
+                  "value": "<warehouse_stock_object_id>",
+                  "description": "Warehouse stock record ID"
+                }
               ]
             },
             "description": "Update warehouse stock quantity. Requires owner role."
@@ -1035,9 +1092,7 @@
           "name": "Get All Storefront Inventory",
           "request": {
             "method": "GET",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" }
-            ],
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": {
               "raw": "{{baseUrl}}/api/v1/storefront-inventory",
               "host": ["{{baseUrl}}"],
@@ -1051,15 +1106,17 @@
           "name": "Get Storefront Inventory By ID",
           "request": {
             "method": "GET",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" }
-            ],
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": {
               "raw": "{{baseUrl}}/api/v1/storefront-inventory/:id",
               "host": ["{{baseUrl}}"],
               "path": ["api", "v1", "storefront-inventory", ":id"],
               "variable": [
-                { "key": "id", "value": "<storefront_inv_object_id>", "description": "Storefront inventory record ID" }
+                {
+                  "key": "id",
+                  "value": "<storefront_inv_object_id>",
+                  "description": "Storefront inventory record ID"
+                }
               ]
             },
             "description": "Get a single storefront inventory record by ID."
@@ -1083,7 +1140,11 @@
               "host": ["{{baseUrl}}"],
               "path": ["api", "v1", "storefront-inventory", ":id", "quantity"],
               "variable": [
-                { "key": "id", "value": "<storefront_inv_object_id>", "description": "Storefront inventory record ID" }
+                {
+                  "key": "id",
+                  "value": "<storefront_inv_object_id>",
+                  "description": "Storefront inventory record ID"
+                }
               ]
             },
             "description": "Update storefront inventory quantity. Requires owner role."
@@ -1121,9 +1182,7 @@
           "name": "Get All Transfers",
           "request": {
             "method": "GET",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" }
-            ],
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": {
               "raw": "{{baseUrl}}/api/v1/transfer",
               "host": ["{{baseUrl}}"],
@@ -1137,15 +1196,17 @@
           "name": "Get Transfer By ID",
           "request": {
             "method": "GET",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" }
-            ],
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": {
               "raw": "{{baseUrl}}/api/v1/transfer/:id",
               "host": ["{{baseUrl}}"],
               "path": ["api", "v1", "transfer", ":id"],
               "variable": [
-                { "key": "id", "value": "<transfer_object_id>", "description": "Transfer ID" }
+                {
+                  "key": "id",
+                  "value": "<transfer_object_id>",
+                  "description": "Transfer ID"
+                }
               ]
             },
             "description": "Get a single transfer by ID."
@@ -1169,7 +1230,11 @@
               "host": ["{{baseUrl}}"],
               "path": ["api", "v1", "transfer", ":id"],
               "variable": [
-                { "key": "id", "value": "<transfer_object_id>", "description": "Transfer ID" }
+                {
+                  "key": "id",
+                  "value": "<transfer_object_id>",
+                  "description": "Transfer ID"
+                }
               ]
             },
             "description": "Update transfer status. Valid values: pending, in-transit, completed, cancelled."
@@ -1207,9 +1272,7 @@
           "name": "Get All Orders",
           "request": {
             "method": "GET",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" }
-            ],
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": {
               "raw": "{{baseUrl}}/api/v1/order",
               "host": ["{{baseUrl}}"],
@@ -1223,15 +1286,17 @@
           "name": "Get Order By ID",
           "request": {
             "method": "GET",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" }
-            ],
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": {
               "raw": "{{baseUrl}}/api/v1/order/:orderId",
               "host": ["{{baseUrl}}"],
               "path": ["api", "v1", "order", ":orderId"],
               "variable": [
-                { "key": "orderId", "value": "<order_object_id>", "description": "Order ID" }
+                {
+                  "key": "orderId",
+                  "value": "<order_object_id>",
+                  "description": "Order ID"
+                }
               ]
             },
             "description": "Get a single order by ID."
@@ -1242,15 +1307,17 @@
           "name": "Get Orders By Storefront",
           "request": {
             "method": "GET",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" }
-            ],
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": {
               "raw": "{{baseUrl}}/api/v1/order/storefront/:storefrontId",
               "host": ["{{baseUrl}}"],
               "path": ["api", "v1", "order", "storefront", ":storefrontId"],
               "variable": [
-                { "key": "storefrontId", "value": "<storefront_object_id>", "description": "Storefront profile ID" }
+                {
+                  "key": "storefrontId",
+                  "value": "<storefront_object_id>",
+                  "description": "Storefront profile ID"
+                }
               ]
             },
             "description": "Get all orders for a specific storefront."
@@ -1274,7 +1341,11 @@
               "host": ["{{baseUrl}}"],
               "path": ["api", "v1", "order", ":orderId", "credit-person"],
               "variable": [
-                { "key": "orderId", "value": "<order_object_id>", "description": "Order ID" }
+                {
+                  "key": "orderId",
+                  "value": "<order_object_id>",
+                  "description": "Order ID"
+                }
               ]
             },
             "description": "Assign or update a credit person on an order."
@@ -1298,7 +1369,11 @@
               "host": ["{{baseUrl}}"],
               "path": ["api", "v1", "order", ":orderId", "paid-amount"],
               "variable": [
-                { "key": "orderId", "value": "<order_object_id>", "description": "Order ID" }
+                {
+                  "key": "orderId",
+                  "value": "<order_object_id>",
+                  "description": "Order ID"
+                }
               ]
             },
             "description": "Update the paid amount on an order. Requires owner role."
@@ -1322,7 +1397,11 @@
               "host": ["{{baseUrl}}"],
               "path": ["api", "v1", "order", ":orderId", "items", "add"],
               "variable": [
-                { "key": "orderId", "value": "<order_object_id>", "description": "Order ID" }
+                {
+                  "key": "orderId",
+                  "value": "<order_object_id>",
+                  "description": "Order ID"
+                }
               ]
             },
             "description": "Add items to an existing order. Requires owner role."
@@ -1346,7 +1425,11 @@
               "host": ["{{baseUrl}}"],
               "path": ["api", "v1", "order", ":orderId", "items", "remove"],
               "variable": [
-                { "key": "orderId", "value": "<order_object_id>", "description": "Order ID" }
+                {
+                  "key": "orderId",
+                  "value": "<order_object_id>",
+                  "description": "Order ID"
+                }
               ]
             },
             "description": "Remove items from an existing order. Requires owner role."
@@ -1357,15 +1440,17 @@
           "name": "Delete Order (Hard)",
           "request": {
             "method": "DELETE",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" }
-            ],
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": {
               "raw": "{{baseUrl}}/api/v1/order/:orderId",
               "host": ["{{baseUrl}}"],
               "path": ["api", "v1", "order", ":orderId"],
               "variable": [
-                { "key": "orderId", "value": "<order_object_id>", "description": "Order ID" }
+                {
+                  "key": "orderId",
+                  "value": "<order_object_id>",
+                  "description": "Order ID"
+                }
               ]
             },
             "description": "Permanently delete an order."
@@ -1403,9 +1488,7 @@
           "name": "Get All Credit Persons",
           "request": {
             "method": "GET",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" }
-            ],
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": {
               "raw": "{{baseUrl}}/api/v1/credit-persona",
               "host": ["{{baseUrl}}"],
@@ -1419,15 +1502,17 @@
           "name": "Get Credit Person By ID",
           "request": {
             "method": "GET",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" }
-            ],
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": {
               "raw": "{{baseUrl}}/api/v1/credit-persona/:id",
               "host": ["{{baseUrl}}"],
               "path": ["api", "v1", "credit-persona", ":id"],
               "variable": [
-                { "key": "id", "value": "<credit_persona_object_id>", "description": "Credit Person ID" }
+                {
+                  "key": "id",
+                  "value": "<credit_persona_object_id>",
+                  "description": "Credit Person ID"
+                }
               ]
             },
             "description": "Get a single credit person by ID."
@@ -1451,7 +1536,11 @@
               "host": ["{{baseUrl}}"],
               "path": ["api", "v1", "credit-persona", ":id"],
               "variable": [
-                { "key": "id", "value": "<credit_persona_object_id>", "description": "Credit Person ID" }
+                {
+                  "key": "id",
+                  "value": "<credit_persona_object_id>",
+                  "description": "Credit Person ID"
+                }
               ]
             },
             "description": "Update a credit person. Requires owner role."
@@ -1489,9 +1578,7 @@
           "name": "Get All Credit Records",
           "request": {
             "method": "GET",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" }
-            ],
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": {
               "raw": "{{baseUrl}}/api/v1/credit-record",
               "host": ["{{baseUrl}}"],
@@ -1505,15 +1592,17 @@
           "name": "Get Credit Record By ID",
           "request": {
             "method": "GET",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" }
-            ],
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": {
               "raw": "{{baseUrl}}/api/v1/credit-record/:id",
               "host": ["{{baseUrl}}"],
               "path": ["api", "v1", "credit-record", ":id"],
               "variable": [
-                { "key": "id", "value": "<credit_record_object_id>", "description": "Credit Record ID" }
+                {
+                  "key": "id",
+                  "value": "<credit_record_object_id>",
+                  "description": "Credit Record ID"
+                }
               ]
             },
             "description": "Get a single credit record by ID."
@@ -1524,15 +1613,17 @@
           "name": "Get Credit Records By Order",
           "request": {
             "method": "GET",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" }
-            ],
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": {
               "raw": "{{baseUrl}}/api/v1/order/:orderId/credit-records",
               "host": ["{{baseUrl}}"],
               "path": ["api", "v1", "order", ":orderId", "credit-records"],
               "variable": [
-                { "key": "orderId", "value": "<order_object_id>", "description": "Order ID" }
+                {
+                  "key": "orderId",
+                  "value": "<order_object_id>",
+                  "description": "Order ID"
+                }
               ]
             },
             "description": "Get all credit records for a specific order."
@@ -1543,15 +1634,23 @@
           "name": "Get Credit Records By Credit Person",
           "request": {
             "method": "GET",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" }
-            ],
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": {
               "raw": "{{baseUrl}}/api/v1/credit-persona/:creditPersonId/credit-records",
               "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "credit-persona", ":creditPersonId", "credit-records"],
+              "path": [
+                "api",
+                "v1",
+                "credit-persona",
+                ":creditPersonId",
+                "credit-records"
+              ],
               "variable": [
-                { "key": "creditPersonId", "value": "<credit_persona_object_id>", "description": "Credit Person ID" }
+                {
+                  "key": "creditPersonId",
+                  "value": "<credit_persona_object_id>",
+                  "description": "Credit Person ID"
+                }
               ]
             },
             "description": "Get all credit records for a specific credit person."
@@ -1562,15 +1661,17 @@
           "name": "Delete Credit Record (Hard)",
           "request": {
             "method": "DELETE",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" }
-            ],
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": {
               "raw": "{{baseUrl}}/api/v1/credit-record/:id",
               "host": ["{{baseUrl}}"],
               "path": ["api", "v1", "credit-record", ":id"],
               "variable": [
-                { "key": "id", "value": "<credit_record_object_id>", "description": "Credit Record ID" }
+                {
+                  "key": "id",
+                  "value": "<credit_record_object_id>",
+                  "description": "Credit Record ID"
+                }
               ]
             },
             "description": "Permanently delete a credit record. Requires owner role."
@@ -1608,9 +1709,7 @@
           "name": "Get All Expenses",
           "request": {
             "method": "GET",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" }
-            ],
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": {
               "raw": "{{baseUrl}}/api/v1/expense",
               "host": ["{{baseUrl}}"],
@@ -1624,15 +1723,17 @@
           "name": "Get Expense By ID",
           "request": {
             "method": "GET",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" }
-            ],
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": {
               "raw": "{{baseUrl}}/api/v1/expense/:id",
               "host": ["{{baseUrl}}"],
               "path": ["api", "v1", "expense", ":id"],
               "variable": [
-                { "key": "id", "value": "<expense_object_id>", "description": "Expense ID" }
+                {
+                  "key": "id",
+                  "value": "<expense_object_id>",
+                  "description": "Expense ID"
+                }
               ]
             },
             "description": "Get a single expense record by ID."
@@ -1656,7 +1757,11 @@
               "host": ["{{baseUrl}}"],
               "path": ["api", "v1", "expense", ":id"],
               "variable": [
-                { "key": "id", "value": "<expense_object_id>", "description": "Expense ID" }
+                {
+                  "key": "id",
+                  "value": "<expense_object_id>",
+                  "description": "Expense ID"
+                }
               ]
             },
             "description": "Update an expense record. Requires owner role."
@@ -1667,15 +1772,17 @@
           "name": "Soft Delete Expense",
           "request": {
             "method": "PATCH",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" }
-            ],
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": {
               "raw": "{{baseUrl}}/api/v1/expense/:id/soft-delete",
               "host": ["{{baseUrl}}"],
               "path": ["api", "v1", "expense", ":id", "soft-delete"],
               "variable": [
-                { "key": "id", "value": "<expense_object_id>", "description": "Expense ID" }
+                {
+                  "key": "id",
+                  "value": "<expense_object_id>",
+                  "description": "Expense ID"
+                }
               ]
             },
             "description": "Soft delete an expense record. Requires owner role."
@@ -1686,15 +1793,17 @@
           "name": "Restore Expense",
           "request": {
             "method": "PATCH",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" }
-            ],
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": {
               "raw": "{{baseUrl}}/api/v1/expense/:id/restore",
               "host": ["{{baseUrl}}"],
               "path": ["api", "v1", "expense", ":id", "restore"],
               "variable": [
-                { "key": "id", "value": "<expense_object_id>", "description": "Expense ID" }
+                {
+                  "key": "id",
+                  "value": "<expense_object_id>",
+                  "description": "Expense ID"
+                }
               ]
             },
             "description": "Restore a soft-deleted expense. Requires owner role."
@@ -1705,15 +1814,17 @@
           "name": "Delete Expense (Hard)",
           "request": {
             "method": "DELETE",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" }
-            ],
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": {
               "raw": "{{baseUrl}}/api/v1/expense/:id",
               "host": ["{{baseUrl}}"],
               "path": ["api", "v1", "expense", ":id"],
               "variable": [
-                { "key": "id", "value": "<expense_object_id>", "description": "Expense ID" }
+                {
+                  "key": "id",
+                  "value": "<expense_object_id>",
+                  "description": "Expense ID"
+                }
               ]
             },
             "description": "Permanently delete an expense record. Requires owner role."
@@ -1730,15 +1841,17 @@
           "name": "Get Sale Report",
           "request": {
             "method": "GET",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" }
-            ],
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": {
               "raw": "{{baseUrl}}/api/v1/sale-report?storefrontId=<storefront_object_id>",
               "host": ["{{baseUrl}}"],
               "path": ["api", "v1", "sale-report"],
               "query": [
-                { "key": "storefrontId", "value": "<storefront_object_id>", "description": "Filter by storefront (omit for all)" }
+                {
+                  "key": "storefrontId",
+                  "value": "<storefront_object_id>",
+                  "description": "Filter by storefront (omit for all)"
+                }
               ]
             },
             "description": "Get sale report for a specific storefront or all storefronts."
@@ -1749,15 +1862,17 @@
           "name": "Get Paid Orders Report",
           "request": {
             "method": "GET",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" }
-            ],
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": {
               "raw": "{{baseUrl}}/api/v1/sale-report/paid-orders?storefrontId=<storefront_object_id>",
               "host": ["{{baseUrl}}"],
               "path": ["api", "v1", "sale-report", "paid-orders"],
               "query": [
-                { "key": "storefrontId", "value": "<storefront_object_id>", "description": "Filter by storefront (omit for all)" }
+                {
+                  "key": "storefrontId",
+                  "value": "<storefront_object_id>",
+                  "description": "Filter by storefront (omit for all)"
+                }
               ]
             },
             "description": "Get payment method breakdown report for paid orders."
@@ -1768,15 +1883,17 @@
           "name": "Get Credit Orders Report",
           "request": {
             "method": "GET",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" }
-            ],
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": {
               "raw": "{{baseUrl}}/api/v1/sale-report/credit-orders?storefrontId=<storefront_object_id>",
               "host": ["{{baseUrl}}"],
               "path": ["api", "v1", "sale-report", "credit-orders"],
               "query": [
-                { "key": "storefrontId", "value": "<storefront_object_id>", "description": "Filter by storefront (omit for all)" }
+                {
+                  "key": "storefrontId",
+                  "value": "<storefront_object_id>",
+                  "description": "Filter by storefront (omit for all)"
+                }
               ]
             },
             "description": "Get credit sale report with credit records breakdown."
@@ -1787,15 +1904,17 @@
           "name": "Get Product Sales Report",
           "request": {
             "method": "GET",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" }
-            ],
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": {
               "raw": "{{baseUrl}}/api/v1/sale-report/products?storefrontId=<storefront_object_id>",
               "host": ["{{baseUrl}}"],
               "path": ["api", "v1", "sale-report", "products"],
               "query": [
-                { "key": "storefrontId", "value": "<storefront_object_id>", "description": "Filter by storefront (omit for all)" }
+                {
+                  "key": "storefrontId",
+                  "value": "<storefront_object_id>",
+                  "description": "Filter by storefront (omit for all)"
+                }
               ]
             },
             "description": "Get product/stock sales statistics report."
@@ -1806,9 +1925,7 @@
           "name": "Get Credit Persona Product Report",
           "request": {
             "method": "GET",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" }
-            ],
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": {
               "raw": "{{baseUrl}}/api/v1/sale-report/credit-persona-products",
               "host": ["{{baseUrl}}"],
@@ -1822,16 +1939,22 @@
           "name": "Get Products By Credit Person",
           "request": {
             "method": "GET",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" }
-            ],
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": {
               "raw": "{{baseUrl}}/api/v1/sale-report/products-by-credit-person?storefrontId=<storefront_object_id>&inventoryId=<inventory_object_id>",
               "host": ["{{baseUrl}}"],
               "path": ["api", "v1", "sale-report", "products-by-credit-person"],
               "query": [
-                { "key": "storefrontId", "value": "<storefront_object_id>", "description": "Filter by storefront (omit for all)" },
-                { "key": "inventoryId", "value": "<inventory_object_id>", "description": "Filter by product (omit for all)" }
+                {
+                  "key": "storefrontId",
+                  "value": "<storefront_object_id>",
+                  "description": "Filter by storefront (omit for all)"
+                },
+                {
+                  "key": "inventoryId",
+                  "value": "<inventory_object_id>",
+                  "description": "Filter by product (omit for all)"
+                }
               ]
             },
             "description": "Get sale products analytics grouped by credit person."
@@ -1869,13 +1992,16 @@
           "name": "Upload Shop Logo",
           "request": {
             "method": "POST",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" }
-            ],
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "body": {
               "mode": "formdata",
               "formdata": [
-                { "key": "logo", "type": "file", "src": "", "description": "Shop logo image file" }
+                {
+                  "key": "logo",
+                  "type": "file",
+                  "src": "",
+                  "description": "Shop logo image file"
+                }
               ]
             },
             "url": {
@@ -1905,9 +2031,7 @@
           "name": "Delete Shop Logo",
           "request": {
             "method": "DELETE",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" }
-            ],
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": {
               "raw": "{{baseUrl}}/api/v1/shop-settings/logo",
               "host": ["{{baseUrl}}"],
@@ -1921,9 +2045,7 @@
           "name": "Get Shop Settings History",
           "request": {
             "method": "GET",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" }
-            ],
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": {
               "raw": "{{baseUrl}}/api/v1/shop-settings/history",
               "host": ["{{baseUrl}}"],
@@ -1943,9 +2065,7 @@
           "name": "Get All Stock Audit Logs",
           "request": {
             "method": "GET",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" }
-            ],
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": {
               "raw": "{{baseUrl}}/api/v1/stock-audit-logs",
               "host": ["{{baseUrl}}"],
@@ -1959,15 +2079,17 @@
           "name": "Get Stock Audit Log By ID",
           "request": {
             "method": "GET",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" }
-            ],
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": {
               "raw": "{{baseUrl}}/api/v1/stock-audit-logs/:id",
               "host": ["{{baseUrl}}"],
               "path": ["api", "v1", "stock-audit-logs", ":id"],
               "variable": [
-                { "key": "id", "value": "<audit_log_object_id>", "description": "Audit log ID" }
+                {
+                  "key": "id",
+                  "value": "<audit_log_object_id>",
+                  "description": "Audit log ID"
+                }
               ]
             },
             "description": "Get a single stock audit log entry by ID."
