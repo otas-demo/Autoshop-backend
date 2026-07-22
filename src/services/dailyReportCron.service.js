@@ -11,30 +11,8 @@ function toMyanmarDigits(num) {
 }
 
 function formatMyanmarCurrency(amount) {
-  amount = Math.round(amount);
-  if (amount === 0) return "၀ ကျပ်";
-
-  const lakhs = Math.floor(amount / 100000);
-  const remainder = amount % 100000;
-  const tenThousands = Math.floor(remainder / 10000);
-  const rest = remainder % 10000;
-
-  const parts = [];
-
-  if (lakhs > 0) {
-    const prefix = lakhs === 1 ? "တစ်" : toMyanmarDigits(lakhs);
-    parts.push(prefix + "သိန်း");
-  }
-
-  if (tenThousands > 0) {
-    parts.push(toMyanmarDigits(tenThousands) + "သောင်း");
-  }
-
-  if (rest > 0) {
-    parts.push(toMyanmarDigits(rest));
-  }
-
-  return parts.join(" ") + "ကျပ်";
+  const num = Math.round(amount);
+  return `${num.toLocaleString("en-US")} ကျပ်`;
 }
 
 function sendNotificationToAdmin(text) {
@@ -90,8 +68,6 @@ async function generateDailyReport() {
         period: "daily",
         finalAmount: report.finalAmount || 0,
         paidAmount: report.paidAmount || 0,
-        subTotal: report.subTotal || 0,
-        tax: report.tax || 0,
         discount: report.discount || 0,
         totalCardAmount: totalCardAmount || 0,
         totalCashAmount: totalCashAmount || 0,

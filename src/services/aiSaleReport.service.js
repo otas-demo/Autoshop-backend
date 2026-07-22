@@ -11,56 +11,9 @@ function buildDateFilter(startDate, endDate) {
 }
 
 export function formatMyanmarCurrency(value) {
-  if (value === undefined || value === null) return "၀ ကျပ်";
+  if (value === undefined || value === null) return "0 ကျပ်";
   const num = Math.round(value);
-  if (num === 0) return "၀ ကျပ်";
-
-  const toMm = (n) => String(n).replace(/\d/g, (d) => "၀၁၂၃၄၅၆၇၈၉"[d]);
-  
-  let temp = num;
-  let parts = [];
-
-  if (temp >= 10000000) {
-    const kote = Math.floor(temp / 10000000);
-    parts.push(`${toMm(kote)} ကုဋေ`);
-    temp %= 10000000;
-  }
-
-  if (temp >= 100000) {
-    const thein = Math.floor(temp / 100000);
-    parts.push(`${toMm(thein)} သိန်း`);
-    temp %= 100000;
-  }
-
-  if (temp >= 10000) {
-    const thaung = Math.floor(temp / 10000);
-    parts.push(`${toMm(thaung)} သောင်း`);
-    temp %= 10000;
-  }
-
-  if (temp >= 1000) {
-    const htaung = Math.floor(temp / 1000);
-    parts.push(`${toMm(htaung)} ထောင်`);
-    temp %= 1000;
-  }
-
-  if (temp >= 100) {
-    const yar = Math.floor(temp / 100);
-    parts.push(`${toMm(yar)} ရာ`);
-    temp %= 100;
-  }
-
-  if (temp >= 10) {
-    const sal = Math.floor(temp / 10);
-    parts.push(`${toMm(sal)} ဆယ်`);
-    temp %= 10;
-  }
-
-  if (temp > 0) {
-    parts.push(`${toMm(temp)}`);
-  }
-
-  return parts.join(" ") + "ကျပ်";
+  return `${num.toLocaleString("en-US")} ကျပ်`;
 }
 
 async function getStorefrontIfValid(storefrontId) {
@@ -101,8 +54,6 @@ export async function getSaleReportSummary(storefrontId, startDate, endDate) {
         _id: null,
         totalFinalAmount: { $sum: "$finalAmount" },
         totalPaidAmount: { $sum: "$paidAmount" },
-        totalSubTotal: { $sum: "$subTotal" },
-        totalTax: { $sum: "$tax" },
         totalDiscount: { $sum: "$discount" },
         totalExtraChange: { $sum: "$extraChange" },
         orderCount: { $sum: 1 },
@@ -112,14 +63,18 @@ export async function getSaleReportSummary(storefrontId, startDate, endDate) {
         paidOrderCount: {
           $sum: { $cond: [{ $eq: ["$paymentType", "paid"] }, 1, 0] },
         },
+        totalCreditAmount: {
+          $sum: { $cond: [{ $eq: ["$paymentType", "credit"] }, "$finalAmount", 0] },
+        },
       },
     },
   ]);
 
   const report = saleReport[0] || {
-    totalFinalAmount: 0, totalPaidAmount: 0, totalSubTotal: 0,
-    totalTax: 0, totalDiscount: 0, totalExtraChange: 0,
+    totalFinalAmount: 0, totalPaidAmount: 0,
+    totalDiscount: 0, totalExtraChange: 0,
     orderCount: 0, creditOrderCount: 0, paidOrderCount: 0,
+    totalCreditAmount: 0,
   };
 
   return {
@@ -129,10 +84,6 @@ export async function getSaleReportSummary(storefrontId, startDate, endDate) {
       finalAmountFormatted: formatMyanmarCurrency(report.totalFinalAmount),
       paidAmount: report.totalPaidAmount,
       paidAmountFormatted: formatMyanmarCurrency(report.totalPaidAmount),
-      subTotal: report.totalSubTotal,
-      subTotalFormatted: formatMyanmarCurrency(report.totalSubTotal),
-      tax: report.totalTax,
-      taxFormatted: formatMyanmarCurrency(report.totalTax),
       discount: report.totalDiscount,
       discountFormatted: formatMyanmarCurrency(report.totalDiscount),
       extraChange: report.totalExtraChange,
@@ -140,6 +91,8 @@ export async function getSaleReportSummary(storefrontId, startDate, endDate) {
       orderCount: report.orderCount,
       creditOrderCount: report.creditOrderCount,
       paidOrderCount: report.paidOrderCount,
+      creditAmount: report.totalCreditAmount,
+      creditAmountFormatted: formatMyanmarCurrency(report.totalCreditAmount),
     },
   };
 }
