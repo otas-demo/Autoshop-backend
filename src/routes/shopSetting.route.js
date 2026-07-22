@@ -5,6 +5,7 @@ import {
   getCurrentShopSettings,
   deleteShopLogo,
   getAllShopSettings,
+  updateCronTime,
   upload,
 } from "../controllers/shopSetting.controller.js";
 import { protect } from "../controllers/administrationPolicy.controller.js";
@@ -49,6 +50,14 @@ router.get(
   protect,
   permissionGranted("owner", "admin"),
   getAllShopSettings
+);
+
+// Update cron schedule time
+router.put(
+  "/shop-settings/cron-time",
+  protect,
+  permissionGranted("owner", "admin"),
+  updateCronTime
 );
 
 export default router;

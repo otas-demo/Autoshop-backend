@@ -1,3 +1,7 @@
+import dns from "node:dns";
+if (process.env.NODE_ENV !== "production") {
+  dns.setServers(["1.1.1.1", "8.8.8.8"]);
+}
 import dotenv from "dotenv";
 dotenv.config({ path: "./.env" });
 import express from "express";
@@ -30,6 +34,7 @@ import saleReportRouter from "./routes/saleReport.route.js";
 import aiSaleReportRouter from "./routes/aiSaleReport.route.js";
 import aiChatRouter from "./routes/aiChat.route.js";
 import shopSettingRouter from "./routes/shopSetting.route.js";
+import dailyReportRouter from "./routes/dailyReport.route.js";
 const app = express();
 app.use(
   helmet({
@@ -68,6 +73,7 @@ app.use("/api/v1", saleReportRouter);
 app.use("/api/v1", aiSaleReportRouter);
 app.use("/api/v1", aiChatRouter);
 app.use("/api/v1", shopSettingRouter);
+app.use("/api/v1", dailyReportRouter);
 //404-Error Handler
 app.all("/*any", (req, res, next) => {
   const err = new CustomError(

@@ -73,6 +73,16 @@ const shopSettingSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    // Daily report cron settings
+    dailyReportTime: {
+      type: String,
+      default: "21:00",
+      trim: true,
+    },
+    dailyReportEnabled: {
+      type: Boolean,
+      default: true,
+    },
     updatedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Admin",

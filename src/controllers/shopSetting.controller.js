@@ -4,6 +4,7 @@ import ShopSetting from "../models/shopSetting.model.js";
 import mongoose from "mongoose";
 import multer from "multer";
 import { uploadToR2, deleteFromR2, generateR2Key, validateLogoFile } from "../configs/cloudflareR2.config.js";
+import { rescheduleCron } from "../services/dailyReportCron.service.js";
 
 // Multer configuration for logo upload
 const upload = multer({
@@ -287,6 +288,43 @@ export const getAllShopSettings = asyncErrorHandler(
   res.status(200).json(response);
   }
 );
+
+// Update cron schedule time
+export const updateCronTime = asyncErrorHandler(async (req, res, next) => {
+  const { dailyReportTime, dailyReportEnabled } = req.body;
+
+  if (dailyReportTime !== undefined) {
+    // Validate format HH:mm
+    if (!/^\d{2}:\d{2}$/.test(dailyReportTime)) {
+      return next(new CustomError(400, "Time must be in HH:mm format (e.g. 21:00)"));
+    }
+  }
+
+  const currentSettings = await ShopSetting.findOne({ isActive: true });
+  if (!currentSettings) {
+    return next(new CustomError(404, "No shop settings found. Create settings first."));
+  }
+
+  const updateData = {};
+  if (dailyReportTime !== undefined) updateData.dailyReportTime = dailyReportTime;
+  if (dailyReportEnabled !== undefined) updateData.dailyReportEnabled = dailyReportEnabled;
+  updateData.updatedBy = req.user._id;
+
+  const updated = await ShopSetting.findByIdAndUpdate(
+    currentSettings._id,
+    updateData,
+    { new: true, runValidators: true }
+  ).populate("updatedBy", "name role");
+
+  // Restart cron with new time
+  await rescheduleCron();
+
+  res.status(200).json({
+    success: true,
+    message: "Cron schedule updated successfully",
+    data: updated,
+  });
+});
 
 // Export upload middleware for use in routes
 export { upload };

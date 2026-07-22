@@ -10,6 +10,59 @@ function buildDateFilter(startDate, endDate) {
   return createDateFilter({ startDate, endDate }, "createdAt", false);
 }
 
+export function formatMyanmarCurrency(value) {
+  if (value === undefined || value === null) return "၀ ကျပ်";
+  const num = Math.round(value);
+  if (num === 0) return "၀ ကျပ်";
+
+  const toMm = (n) => String(n).replace(/\d/g, (d) => "၀၁၂၃၄၅၆၇၈၉"[d]);
+  
+  let temp = num;
+  let parts = [];
+
+  if (temp >= 10000000) {
+    const kote = Math.floor(temp / 10000000);
+    parts.push(`${toMm(kote)} ကုဋေ`);
+    temp %= 10000000;
+  }
+
+  if (temp >= 100000) {
+    const thein = Math.floor(temp / 100000);
+    parts.push(`${toMm(thein)} သိန်း`);
+    temp %= 100000;
+  }
+
+  if (temp >= 10000) {
+    const thaung = Math.floor(temp / 10000);
+    parts.push(`${toMm(thaung)} သောင်း`);
+    temp %= 10000;
+  }
+
+  if (temp >= 1000) {
+    const htaung = Math.floor(temp / 1000);
+    parts.push(`${toMm(htaung)} ထောင်`);
+    temp %= 1000;
+  }
+
+  if (temp >= 100) {
+    const yar = Math.floor(temp / 100);
+    parts.push(`${toMm(yar)} ရာ`);
+    temp %= 100;
+  }
+
+  if (temp >= 10) {
+    const sal = Math.floor(temp / 10);
+    parts.push(`${toMm(sal)} ဆယ်`);
+    temp %= 10;
+  }
+
+  if (temp > 0) {
+    parts.push(`${toMm(temp)}`);
+  }
+
+  return parts.join(" ") + "ကျပ်";
+}
+
 async function getStorefrontIfValid(storefrontId) {
   if (!storefrontId) return null;
   if (!mongoose.Types.ObjectId.isValid(storefrontId)) {
@@ -73,11 +126,17 @@ export async function getSaleReportSummary(storefrontId, startDate, endDate) {
     storefront: storefront ? { locationName: storefront.locationName } : null,
     report: {
       finalAmount: report.totalFinalAmount,
+      finalAmountFormatted: formatMyanmarCurrency(report.totalFinalAmount),
       paidAmount: report.totalPaidAmount,
+      paidAmountFormatted: formatMyanmarCurrency(report.totalPaidAmount),
       subTotal: report.totalSubTotal,
+      subTotalFormatted: formatMyanmarCurrency(report.totalSubTotal),
       tax: report.totalTax,
+      taxFormatted: formatMyanmarCurrency(report.totalTax),
       discount: report.totalDiscount,
+      discountFormatted: formatMyanmarCurrency(report.totalDiscount),
       extraChange: report.totalExtraChange,
+      extraChangeFormatted: formatMyanmarCurrency(report.totalExtraChange),
       orderCount: report.orderCount,
       creditOrderCount: report.creditOrderCount,
       paidOrderCount: report.paidOrderCount,
@@ -104,6 +163,7 @@ export async function getPaymentMethodReport(storefrontId, startDate, endDate) {
     paymentMethods: paymentMethodReport.map((item) => ({
       paymentMethod: item._id || "unknown",
       totalPaidAmount: item.totalPaidAmount,
+      totalPaidAmountFormatted: formatMyanmarCurrency(item.totalPaidAmount),
     })),
   };
 }
@@ -130,8 +190,11 @@ export async function getCreditSaleReport(storefrontId, startDate, endDate) {
   return {
     totals: {
       totalFinalAmount,
+      totalFinalAmountFormatted: formatMyanmarCurrency(totalFinalAmount),
       totalPaidAmount,
+      totalPaidAmountFormatted: formatMyanmarCurrency(totalPaidAmount),
       totalRemainingBalance: Math.max(0, totalRemainingBalance),
+      totalRemainingBalanceFormatted: formatMyanmarCurrency(Math.max(0, totalRemainingBalance)),
       orderCount: creditOrders.length,
       creditRecordCount: creditRecords.length,
     },
@@ -198,7 +261,18 @@ export async function getProductSalesReport(storefrontId, startDate, endDate) {
     { totalQuantity: 0, totalRevenue: 0, totalProfit: 0, totalUniqueProducts: 0 }
   );
 
-  return { totals, topProducts: productSalesReport };
+  return {
+    totals: {
+      ...totals,
+      totalRevenueFormatted: formatMyanmarCurrency(totals.totalRevenue),
+      totalProfitFormatted: formatMyanmarCurrency(totals.totalProfit),
+    },
+    topProducts: productSalesReport.map((item) => ({
+      ...item,
+      totalRevenueFormatted: formatMyanmarCurrency(item.totalRevenue),
+      totalProfitFormatted: formatMyanmarCurrency(item.totalProfit),
+    })),
+  };
 }
 
 export async function getCreditPersonaProductReport(creditPersonaId, storefrontId, startDate, endDate) {

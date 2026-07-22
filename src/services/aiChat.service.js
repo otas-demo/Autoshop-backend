@@ -25,22 +25,17 @@ Today's current date is ${today}. Use this static timestamp as your anchor point
 3. **Strict Formatting Layout:** When presenting a standard sales or financial report, you must bypass conversational filler and strictly construct the response using clean bullet points (•) formatted precisely as follows:
 
    ဒီလအတွက် အရောင်းအစီရင်ခံစာ အနှစ်ချုပ်မှာ အောက်ပါအတိုင်း ဖြစ်ပါတယ်ခင်ဗျာ -
-   • စုစုပေါင်း ရောင်းအားပမာဏ: [Format Currency Here]
-   • ကဒ်/Mobile Banking ဖြင့် ပေးချေမှု: [Format Currency Here]
-   • လက်ငင်းငွေသား (Cash) ဖြင့် ပေးချေမှု: [Format Currency Here]
-   • လျှော့စျေး (Discount): [Format Currency Here]
+   • စုစုပေါင်း ရောင်းအားပမာဏ: [finalAmountFormatted]
+   • ကဒ်/Mobile Banking ဖြင့် ပေးချေမှု: [totalPaidAmountFormatted (for cards/mobile banking)]
+   • လက်ငင်းငွေသား (Cash) ဖြင့် ပေးချေမှု: [totalPaidAmountFormatted (for cash)]
+   • လျှော့စျေး (Discount): [discountFormatted]
    • စုစုပေါင်း အော်ဒါ (Order) အရေအတွက်: [Myanmar Digits] ခု
    • စုစုပေါင်း ရောင်းရသည့် ပစ္စည်းအရေအတွက်: [Myanmar Digits] ခု
 
    ကျေးဇူးတင်ပါတယ်ခင်ဗျာ။
+4. **Myanmar Currency Formatting (Crucial):** All database tool responses contain pre-formatted Myanmar currency strings ending in \`Formatted\` (e.g., \`finalAmountFormatted\`, \`paidAmountFormatted\`, \`discountFormatted\`, \`totalPaidAmountFormatted\`, \`totalRevenueFormatted\`, \`totalProfitFormatted\`, etc.). You MUST use these exact pre-formatted strings directly for any currency/money values in your output. Do NOT calculate, estimate, translate, or format raw numerical currency amounts yourself. If a pre-formatted string is not available, only then format using standard Burmese currency phrasings (e.g., 100,000 → ၁ သိန်းကျပ်, 1,000,000 → ၁၀ သိန်းကျပ်). Always truncate ".00" for whole numbers; expose floating decimals only when representing partial cents/pya.
+   * **CRITICAL:** Do NOT alter, rewrite, translate, or replace any words or characters in the pre-formatted strings (e.g., never change the word "ထောင်" to "မြောက်" or anything else). Copy them character-for-character exactly as returned by the tools.
 
-4. **Myanmar Currency Formatting (Crucial):** Convert all raw numerical values into traditional, easy-to-read Myanmar financial phrasing. Never output raw formatting like "8060000 ကျပ်" or "5400000.00". Follow these precise conversions:
-   - 1,000,000 → "ဆယ်သိန်းကျပ်"
-   - 5,400,000 → "၅၄ သိန်းကျပ်"
-   - 8,060,000 → "၈၀ သိန်း ၆ သောင်းကျပ်"
-   - 100,000 → "တစ်သိန်းကျပ်"
-   - 10,000,000 → "တစ်ကုဋေကျပ်"
-   - Always truncate ".00" for whole numbers; expose floating decimals only when representing partial cents/pya.
 5. **Quantity Formatting:** Format all countable quantities using Myanmar digits paired with correct Burmese classifiers (e.g., ၁၅ ခု, ၂၃ မျိုး, ၅ စောင်).
 6. **Conciseness Target:** Keep all text outside the formatted report layout extremely tight and data-driven to optimize memory usage and minimize token latency.
 
@@ -316,8 +311,19 @@ export async function processAiChat(
     return cached;
   }
 
+  // Convert frontend conversation history to OpenRouter format
+  // Frontend sends [{ role: "user"|"ai", content, ... }, ...]
+  // OpenRouter expects [{ role: "user"|"assistant", content }, ...]
+  const historyMessages = (conversationHistory || [])
+    .filter((msg) => msg.role === "user" || msg.role === "ai")
+    .map((msg) => ({
+      role: msg.role === "ai" ? "assistant" : "user",
+      content: msg.content,
+    }));
+
   const messages = [
     { role: "system", content: SYSTEM_PROMPT },
+    ...historyMessages,
     {
       role: "user",
       content: defaults.storefrontId
