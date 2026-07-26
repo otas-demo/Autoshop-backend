@@ -3,6 +3,7 @@ import Order from "../models/orders.model.js";
 import CreditRecord from "../models/creditRecord.model.js";
 import CreditPerson from "../models/creditPersona.model.js";
 import LocationProfile from "../models/locationProfile.model.js";
+import Expense from "../models/expense.model.js";
 import { createDateFilter } from "../utils/dateFilter.utils.js";
 
 function buildDateFilter(startDate, endDate) {
@@ -77,6 +78,8 @@ export async function getSaleReportSummary(storefrontId, startDate, endDate) {
     totalCreditAmount: 0,
   };
 
+  const paymentMethodsData = await getPaymentMethodReport(storefrontId, startDate, endDate);
+
   return {
     storefront: storefront ? { locationName: storefront.locationName } : null,
     report: {
@@ -94,6 +97,7 @@ export async function getSaleReportSummary(storefrontId, startDate, endDate) {
       creditAmount: report.totalCreditAmount,
       creditAmountFormatted: formatMyanmarCurrency(report.totalCreditAmount),
     },
+    paymentMethods: paymentMethodsData ? paymentMethodsData.paymentMethods : [],
   };
 }
 
@@ -337,4 +341,39 @@ export async function getSaleProductsAnalyticsByCreditPerson(storefrontId, inven
   );
 
   return { totals, topProducts: productAnalytics };
+}
+
+export async function getExpenseReport(storefrontId, startDate, endDate) {
+  const filter = { softDeleted: false };
+  if (storefrontId) {
+    if (!mongoose.Types.ObjectId.isValid(storefrontId)) {
+      throw new Error("Invalid storefront ID format");
+    }
+    filter.locationId = new mongoose.Types.ObjectId(storefrontId);
+  }
+  
+  if (startDate || endDate) {
+    filter.date = {};
+    if (startDate) {
+      filter.date.$gte = new Date(startDate + "T00:00:00.000Z");
+    }
+    if (endDate) {
+      filter.date.$lte = new Date(endDate + "T23:59:59.999Z");
+    }
+  }
+
+  const expenses = await Expense.find(filter).lean();
+  const totalAmount = expenses.reduce((sum, e) => sum + e.amount, 0);
+
+  return {
+    expenses: expenses.map(e => ({
+      category: e.category,
+      amount: e.amount,
+      amountFormatted: formatMyanmarCurrency(e.amount),
+      date: e.date ? e.date.toISOString().split("T")[0] : "",
+      notes: e.notes || "",
+    })),
+    totalAmount,
+    totalAmountFormatted: formatMyanmarCurrency(totalAmount),
+  };
 }

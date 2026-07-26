@@ -35,19 +35,26 @@ Today's current date is ${today}. Use this static timestamp as your anchor point
 
    ဒီလအတွက် အရောင်းအစီရင်ခံစာ အနှစ်ချုပ်မှာ အောက်ပါအတိုင်း ဖြစ်ပါတယ်ခင်ဗျာ -
    • စုစုပေါင်း ရောင်းအားပမာဏ: [finalAmountFormatted]
-   • ကဒ်/Mobile Banking ဖြင့် ပေးချေမှု: [totalPaidAmountFormatted (for cards/mobile banking)]
-   • လက်ငင်းငွေသား (Cash) ဖြင့် ပေးချေမှု: [totalPaidAmountFormatted (for cash)]
+   [Dynamically list all payment methods returned in the payload individually, using their mapped names: KBZ Pay, AYA Pay, Wave Pay, UAB Pay, Bank Transfer, or Cash. E.g.:
+   • KBZ Pay ဖြင့် ပေးချေမှု: [amount]
+   • ငွေသား (Cash) ဖြင့် ပေးချေမှု: [amount]]
    • လျှော့စျေး (Discount): [discountFormatted]
    • အကြွေးရရန်ရှိငွေ: [creditAmountFormatted]
-   • စုစုပေါင်း အော်ဒါ (Order) အရေအတွက်: [Myanmar Digits] ခု
-   • စုစုပေါင်း ရောင်းရသည့် ပစ္စည်းအရေအတွက်: [Myanmar Digits] ခု
+   • စုစုပေါင်း အော်ဒါ (Order) အရေအတွက်: [English Digits] ခု
+   • စုစုပေါင်း ရောင်းရသည့် ပစ္စည်းအရေအတွက်: [English Digits] ခု
 
    ကျေးဇူးတင်ပါတယ်ခင်ဗျာ။
+
+   - **Expense Reports Formatting:** When answering questions about expenses (using \`getExpenseReport\`), list each expense transaction clearly using this bullet format:
+     • [Category] - [amountFormatted] ([Notes, if notes exist])
+     And at the end, output the total:
+     • စုစုပေါင်း အသုံးစရိတ်: [totalAmountFormatted]
+     Ensure all quantity numbers and ordering lists are written in English digits (1 2 3).
 
 4. **Myanmar Currency & Digit Formatting:**
    - Always prioritize the exact pre-formatted currency strings ending in \`Formatted\` (e.g., \`finalAmountFormatted\`, \`discountFormatted\`) returned by the tools. Copy them **character-for-character**. Never rewrite, alter, or replace words in pre-formatted strings (e.g., do NOT change "ထောင်" to "မြောက်").
    - Truncate \`.00\` for whole numbers. Expose floating decimals only when representing partial cents/pya.
-   - Format countable items and quantities using Myanmar digits with appropriate classifiers (e.g., ၁၅ ခု, ၂၃ မျိုး, ၅ စောင်).
+   - Format countable items and quantities using English digits with appropriate classifiers (e.g., 15 ခု, 23 မျိုး, 5 စောင်). Do NOT translate these counts/quantities into Myanmar digits (၁၊ ၂၊ ၃).
 
 ===== TOOL EXECUTION & DATE RANGE CONVERSION =====
 5. **Immediate Execution:** Trigger tools instantly upon receiving data-specific requests without sending pre-conversational filler text.
@@ -75,7 +82,7 @@ const toolDefinitions = [
     function: {
       name: "getSaleReport",
       description:
-        "Get aggregate sale totals including finalAmount, paidAmount, discount, extraChange, and order counts (total, credit, paid orders). Good for general sales overview.",
+        "Get aggregate sale totals including finalAmount, paidAmount, discount, extraChange, order counts (total, credit, paid orders), and a detailed breakdown of sales by payment methods (e.g. kpay, ayapay, cash, wave, bank). Good for general sales overview and checking specific payment method totals.",
       parameters: {
         type: "object",
         properties: {
@@ -95,7 +102,6 @@ const toolDefinitions = [
       },
     },
   },
-  /*
   {
     type: "function",
     function: {
@@ -231,7 +237,30 @@ const toolDefinitions = [
       },
     },
   },
-  */
+  {
+    type: "function",
+    function: {
+      name: "getExpenseReport",
+      description: "Get storefront expenses for a storefront and date range. Returns a list of expenses including category, amount, amountFormatted, date, and notes, along with the total sum.",
+      parameters: {
+        type: "object",
+        properties: {
+          storefrontId: {
+            type: "string",
+            description: "Optional storefront ID. Omit for all storefronts.",
+          },
+          startDate: {
+            type: "string",
+            description: "Optional start date (YYYY-MM-DD format).",
+          },
+          endDate: {
+            type: "string",
+            description: "Optional end date (YYYY-MM-DD format).",
+          },
+        },
+      },
+    },
+  },
 ];
 
 async function callOpenRouter(messages) {
@@ -274,7 +303,6 @@ async function executeTool(toolName, args) {
         startDate,
         endDate,
       );
-    /*
     case "getPaymentMethodReport":
       return aiSaleReport.getPaymentMethodReport(
         storefrontId,
@@ -303,7 +331,12 @@ async function executeTool(toolName, args) {
         startDate,
         endDate,
       );
-    */
+    case "getExpenseReport":
+      return aiSaleReport.getExpenseReport(
+        storefrontId,
+        startDate,
+        endDate,
+      );
     default:
       throw new Error(`Unknown tool: ${toolName}`);
   }
