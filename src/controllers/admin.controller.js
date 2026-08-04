@@ -46,11 +46,11 @@ export const login = asyncErrorHandler(async (req, res, next) => {
   const admin = await Admin.findOne({ name }).select("+password");
 
   if (!admin) {
-    return next(new CustomError(400, "Invalid credentials."));
+    return next(new CustomError(400, "Invalid credentials.", "INVALID_CREDENTIALS"));
   }
 
   if (admin.softDeleted) {
-    return next(new CustomError(401, "You can't login."));
+    return next(new CustomError(401, "You can't login.", "UNAUTHORIZED"));
   }
 
   const isPasswordCorrect = await admin.comparePasswordInDb(
@@ -59,7 +59,7 @@ export const login = asyncErrorHandler(async (req, res, next) => {
   );
 
   if (!isPasswordCorrect) {
-    return next(new CustomError(400, "Invalid Credentials."));
+    return next(new CustomError(400, "Invalid Credentials.", "INVALID_CREDENTIALS"));
   }
 
   // Populate locationId if it exists
