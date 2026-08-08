@@ -257,6 +257,14 @@ export const createGRN = asyncErrorHandler(async (req, res, next) => {
     const totalPrice = receivedQuantity * unitPrice;
 
     // Build line item with all data auto-filled from PO
+    let itemBatchNumber = userItem.batchNumber || null;
+    if (!itemBatchNumber || itemBatchNumber.trim() === "") {
+      const now = new Date();
+      const dateStr = now.getFullYear() + String(now.getMonth() + 1).padStart(2, "0") + String(now.getDate()).padStart(2, "0");
+      const randomAlphanumeric = Math.random().toString(36).substring(2, 6).toUpperCase();
+      itemBatchNumber = `BAT-${dateStr}-${randomAlphanumeric}`;
+    }
+
     const grnLineItem = {
       inventoryId: inventoryIdValue, // Auto-filled from PO or looked up by productCode
       receivedQuantity: receivedQuantity, // Auto-calculated: goodQuantity + badQuantity
@@ -264,6 +272,9 @@ export const createGRN = asyncErrorHandler(async (req, res, next) => {
       badQuantity: userItem.badQuantity, // User provides
       unitPrice: unitPrice, // Uses PO's buyingPrice if not provided
       totalPrice: totalPrice, // Auto-calculated: receivedQuantity * unitPrice (pay for all received items)
+      batchNumber: itemBatchNumber,
+      expiryDate: userItem.expiryDate || null,
+      manufacturingDate: userItem.manufacturingDate || null,
       notes: userItem.notes || null,
     };
 

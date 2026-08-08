@@ -207,10 +207,6 @@ export const getAllWarehouseStock = asyncErrorHandler(
       query.inventoryId = new mongoose.Types.ObjectId(inventoryId);
     }
 
-    if (isLowStock !== undefined) {
-      query.isLowStock = isLowStock === "true";
-    }
-
     // Build aggregation pipeline to filter by status (since status is in Inventory model)
     const pipeline = [
       { $match: query },
@@ -225,45 +221,11 @@ export const getAllWarehouseStock = asyncErrorHandler(
       { $unwind: "$inventoryId" },
       { $match: { "inventoryId.status": "active" } },
     ];
-
+  
     if (category) {
       pipeline.push({ $match: { "inventoryId.category": category } });
     }
-
-    pipeline.push(
-      {
-        $lookup: {
-          from: "locationprofiles",
-          localField: "warehouseId",
-          foreignField: "_id",
-          as: "warehouseId",
-        },
-      },
-      { $unwind: "$warehouseId" },
-      {
-        $project: {
-          _id: 1,
-          quantity: 1,
-          isLowStock: 1,
-          lastUpdated: 1,
-          createdAt: 1,
-          updatedAt: 1,
-          "inventoryId._id": 1,
-          "inventoryId.productName": 1,
-          "inventoryId.productCode": 1,
-          "inventoryId.SKU": 1,
-          "inventoryId.category": 1,
-          "inventoryId.buyingPrice": 1,
-          "inventoryId.sellingPrice": 1,
-          "inventoryId.barcode": 1,
-          "inventoryId.status": 1,
-          "warehouseId._id": 1,
-          "warehouseId.locationName": 1,
-          "warehouseId.locationCode": 1,
-        },
-      },
-    );
-
+  
     if (search) {
       pipeline.push({
         $match: {
@@ -275,6 +237,50 @@ export const getAllWarehouseStock = asyncErrorHandler(
         },
       });
     }
+
+    // GROUP BY PRODUCT (inventoryId) - Summing up quantities of different batches
+    pipeline.push(
+      {
+        $group: {
+          _id: {
+            inventoryId: "$inventoryId._id",
+            warehouseId: "$warehouseId"
+          },
+          quantity: { $sum: "$quantity" },
+          isLowStock: { $max: "$isLowStock" }, // If any batch is low stock or overall is low stock
+          lastUpdated: { $max: "$lastUpdated" },
+          createdAt: { $min: "$createdAt" },
+          updatedAt: { $max: "$updatedAt" },
+          inventoryId: { $first: "$inventoryId" } // Keep reference to original unwound product
+        }
+      },
+      {
+        $lookup: {
+          from: "locationprofiles",
+          localField: "_id.warehouseId",
+          foreignField: "_id",
+          as: "warehouseId",
+        },
+      },
+      { $unwind: "$warehouseId" },
+      {
+        $project: {
+          _id: "$_id.inventoryId", // Set _id as the inventory ID for consistency
+          quantity: 1,
+          isLowStock: 1,
+          lastUpdated: 1,
+          createdAt: 1,
+          updatedAt: 1,
+          inventoryId: 1,
+          warehouseId: {
+            _id: "$warehouseId._id",
+            locationName: "$warehouseId.locationName",
+            locationCode: "$warehouseId.locationCode"
+          }
+        }
+      }
+    );
+
 
     // Build query chain using aggregate for status filtering and summary statistics
     const summaryPipeline = [

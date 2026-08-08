@@ -18,6 +18,19 @@ const storefrontInventorySchema = new mongoose.Schema(
       min: [0, "Quantity cannot be negative"],
       default: 0,
     },
+    batchNumber: {
+      type: String,
+      default: "__LEGACY__",
+      required: [true, "Batch number is required"],
+    },
+    expiryDate: {
+      type: Date,
+      default: null,
+    },
+    manufacturingDate: {
+      type: Date,
+      default: null,
+    },
     // Low stock alert flag (calculated based on Inventory reorderPoint)
     isLowStock: {
       type: Boolean,
@@ -36,9 +49,9 @@ const storefrontInventorySchema = new mongoose.Schema(
   }
 );
 
-// Compound unique index: One stock record per product per storefront
+// Compound unique index: One stock record per product per storefront per batch
 storefrontInventorySchema.index(
-  { inventoryId: 1, storefrontId: 1 },
+  { inventoryId: 1, storefrontId: 1, batchNumber: 1 },
   { unique: true }
 );
 
@@ -47,6 +60,7 @@ storefrontInventorySchema.index({ storefrontId: 1 });
 storefrontInventorySchema.index({ inventoryId: 1 });
 storefrontInventorySchema.index({ storefrontId: 1, isLowStock: 1 }); // For low stock queries per storefront
 storefrontInventorySchema.index({ quantity: 1 }); // For sorting by quantity
+storefrontInventorySchema.index({ expiryDate: 1 }); // For expiry date queries
 
 // Virtual for available quantity (same as quantity since we don't track reservations here)
 storefrontInventorySchema.virtual("availableQuantity").get(function () {
@@ -56,14 +70,16 @@ storefrontInventorySchema.virtual("availableQuantity").get(function () {
 // Static method to find or create stock record
 storefrontInventorySchema.statics.findOrCreateStock = async function (
   inventoryId,
-  storefrontId
+  storefrontId,
+  batchNumber = "__LEGACY__"
 ) {
-  let stock = await this.findOne({ inventoryId, storefrontId });
+  let stock = await this.findOne({ inventoryId, storefrontId, batchNumber });
 
   if (!stock) {
     stock = await this.create({
       inventoryId,
       storefrontId,
+      batchNumber,
       quantity: 0,
     });
   }

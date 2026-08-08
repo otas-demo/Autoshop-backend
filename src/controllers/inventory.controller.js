@@ -121,10 +121,46 @@ export const getAllInventory = asyncErrorHandler(async (req, res, next) => {
   // Execute query
   const inventory = await queryChain;
 
+  // Enhance products with expiry info from WarehouseStock and StorefrontInventory
+  const enrichedInventory = [];
+  for (const item of inventory) {
+    const id = item._id;
+
+    // Find all active stocks with expiry dates
+    const wStocks = await WarehouseStock.find({ inventoryId: id, expiryDate: { $ne: null } }).select("expiryDate");
+    const sStocks = await StorefrontInventory.find({ inventoryId: id, expiryDate: { $ne: null } }).select("expiryDate");
+
+    const allExpiries = [...wStocks, ...sStocks]
+      .map(s => s.expiryDate)
+      .filter(d => d !== null && !isNaN(new Date(d).getTime()))
+      .sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
+
+    let nearestExpiryDate = null;
+    let isExpired = false;
+    let isExpiringSoon = false;
+
+    if (allExpiries.length > 0) {
+      nearestExpiryDate = allExpiries[0];
+      const now = new Date();
+      const expiryTime = new Date(nearestExpiryDate).getTime();
+      const warningTime = now.getTime() + (30 * 24 * 60 * 60 * 1000); // 30 days
+
+      isExpired = expiryTime <= now.getTime();
+      isExpiringSoon = !isExpired && expiryTime <= warningTime;
+    }
+
+    enrichedInventory.push({
+      ...item.toObject(),
+      nearestExpiryDate,
+      isExpired,
+      isExpiringSoon
+    });
+  }
+
   const response = {
     success: true,
     message: "Inventory items retrieved successfully",
-    data: inventory,
+    data: enrichedInventory,
   };
 
   // Only include pagination info if pagination was applied
@@ -158,7 +194,7 @@ export const getInventoryById = asyncErrorHandler(async (req, res, next) => {
       "warehouseId",
       "locationName locationCode locationAddress type status",
     )
-    .select("warehouseId quantity lastUpdated");
+    .select("warehouseId quantity batchNumber expiryDate manufacturingDate lastUpdated");
 
   // Get stock availability for all storefronts
   const storefrontStocks = await StorefrontInventory.find({
@@ -168,7 +204,7 @@ export const getInventoryById = asyncErrorHandler(async (req, res, next) => {
       "storefrontId",
       "locationName locationCode locationAddress type status",
     )
-    .select("storefrontId quantity lastUpdated");
+    .select("storefrontId quantity batchNumber expiryDate manufacturingDate lastUpdated");
 
   // Format warehouse stock data - filter out null warehouseId (deleted locations)
   const warehouseStockAvailability = warehouseStocks
@@ -183,6 +219,9 @@ export const getInventoryById = asyncErrorHandler(async (req, res, next) => {
       locationType: stock.warehouseId.type,
       status: stock.warehouseId.status,
       quantity: stock.quantity,
+      batchNumber: stock.batchNumber,
+      expiryDate: stock.expiryDate,
+      manufacturingDate: stock.manufacturingDate,
       lastUpdated: stock.lastUpdated,
     }));
 
@@ -190,7 +229,7 @@ export const getInventoryById = asyncErrorHandler(async (req, res, next) => {
   const storefrontStockAvailability = storefrontStocks
     .filter(
       (stock) =>
-        stock.storefrontId !== null && stock.storefrontId !== undefined,
+          stock.storefrontId !== null && stock.storefrontId !== undefined,
     )
     .map((stock) => ({
       locationId: stock.storefrontId._id,
@@ -200,6 +239,9 @@ export const getInventoryById = asyncErrorHandler(async (req, res, next) => {
       locationType: stock.storefrontId.type,
       status: stock.storefrontId.status,
       quantity: stock.quantity,
+      batchNumber: stock.batchNumber,
+      expiryDate: stock.expiryDate,
+      manufacturingDate: stock.manufacturingDate,
       lastUpdated: stock.lastUpdated,
     }));
 
@@ -212,16 +254,39 @@ export const getInventoryById = asyncErrorHandler(async (req, res, next) => {
   const totalStorefrontQuantity = storefrontStocks
     .filter(
       (stock) =>
-        stock.storefrontId !== null && stock.storefrontId !== undefined,
+          stock.storefrontId !== null && stock.storefrontId !== undefined,
     )
     .reduce((sum, stock) => sum + (stock.quantity || 0), 0);
   const totalQuantity = totalWarehouseQuantity + totalStorefrontQuantity;
+
+  // Aggregate global product level warning info
+  const allExpiries = [...warehouseStocks, ...storefrontStocks]
+    .map(s => s.expiryDate)
+    .filter(d => d !== null && !isNaN(new Date(d).getTime()))
+    .sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
+
+  let nearestExpiryDate = null;
+  let isExpired = false;
+  let isExpiringSoon = false;
+
+  if (allExpiries.length > 0) {
+    nearestExpiryDate = allExpiries[0];
+    const now = new Date();
+    const expiryTime = new Date(nearestExpiryDate).getTime();
+    const warningTime = now.getTime() + (30 * 24 * 60 * 60 * 1000); // 30 days
+
+    isExpired = expiryTime <= now.getTime();
+    isExpiringSoon = !isExpired && expiryTime <= warningTime;
+  }
 
   res.status(200).json({
     success: true,
     message: "Inventory item retrieved successfully",
     data: {
       ...inventory.toObject(),
+      nearestExpiryDate,
+      isExpired,
+      isExpiringSoon,
       stockAvailability: {
         warehouses: {
           count: warehouseStockAvailability.length,
