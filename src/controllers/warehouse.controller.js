@@ -534,3 +534,35 @@ export const updateWarehouseStockQuantity = asyncErrorHandler(
     }
   },
 );
+
+export const getExpiringWarehouseStock = asyncErrorHandler(
+  async (req, res, next) => {
+    const { warehouseId } = req.params;
+    const { days = 30 } = req.query;
+
+    if (!mongoose.Types.ObjectId.isValid(warehouseId)) {
+      return next(new CustomError(400, "Invalid warehouse ID format"));
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const thresholdDate = new Date();
+    thresholdDate.setDate(today.getDate() + parseInt(days));
+    thresholdDate.setHours(23, 59, 59, 999);
+
+    const expiringStock = await WarehouseStock.find({
+      warehouseId,
+      expiryDate: { $gte: today, $lte: thresholdDate },
+      quantity: { $gt: 0 }
+    })
+      .populate("inventoryId")
+      .sort({ expiryDate: 1 });
+
+    res.status(200).json({
+      success: true,
+      message: "Expiring stock retrieved successfully",
+      data: expiringStock
+    });
+  }
+);

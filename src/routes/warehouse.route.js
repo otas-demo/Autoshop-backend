@@ -4,6 +4,7 @@ import {
   getAllWarehouseStock,
   getWarehouseStockById,
   updateWarehouseStockQuantity,
+  getExpiringWarehouseStock,
 } from "../controllers/warehouse.controller.js";
 import { protect } from "../controllers/administrationPolicy.controller.js";
 import { permissionGranted } from "../controllers/administrationPolicy.controller.js";
@@ -23,6 +24,14 @@ router.get(
   protect,
   permissionGranted("owner", "admin", "cashier"),
   getAllWarehouseStock
+);
+
+// Get expiring stock for specific warehouse
+router.get(
+  "/warehouse/:warehouseId/expiring-stock",
+  protect,
+  permissionGranted("owner", "admin", "cashier"),
+  getExpiringWarehouseStock
 );
 
 // Get warehouse stock by ID

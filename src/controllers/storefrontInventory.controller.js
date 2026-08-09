@@ -543,3 +543,35 @@ export const updateStorefrontInventoryQuantity = asyncErrorHandler(
     }
   },
 );
+
+export const getExpiringStorefrontInventory = asyncErrorHandler(
+  async (req, res, next) => {
+    const { storefrontId } = req.params;
+    const { days = 30 } = req.query;
+
+    if (!mongoose.Types.ObjectId.isValid(storefrontId)) {
+      return next(new CustomError(400, "Invalid storefront ID format"));
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const thresholdDate = new Date();
+    thresholdDate.setDate(today.getDate() + parseInt(days));
+    thresholdDate.setHours(23, 59, 59, 999);
+
+    const expiringStock = await StorefrontInventory.find({
+      storefrontId,
+      expiryDate: { $gte: today, $lte: thresholdDate },
+      quantity: { $gt: 0 }
+    })
+      .populate("inventoryId")
+      .sort({ expiryDate: 1 });
+
+    res.status(200).json({
+      success: true,
+      message: "Expiring storefront stock retrieved successfully",
+      data: expiringStock
+    });
+  }
+);

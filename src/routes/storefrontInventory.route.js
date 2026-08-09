@@ -4,6 +4,7 @@ import {
   getAllStorefrontInventory,
   getStorefrontInventoryById,
   updateStorefrontInventoryQuantity,
+  getExpiringStorefrontInventory,
 } from "../controllers/storefrontInventory.controller.js";
 import { protect } from "../controllers/administrationPolicy.controller.js";
 import { permissionGranted } from "../controllers/administrationPolicy.controller.js";
@@ -23,6 +24,14 @@ router.get(
   protect,
   permissionGranted("owner", "admin", "cashier"),
   getAllStorefrontInventory
+);
+
+// Get expiring stock for storefront
+router.get(
+  "/storefront-inventory/:storefrontId/expiring-stock",
+  protect,
+  permissionGranted("owner", "admin", "cashier"),
+  getExpiringStorefrontInventory
 );
 
 // Get storefront inventory by ID
