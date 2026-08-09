@@ -11,6 +11,23 @@ export const createSupplierProfile = asyncErrorHandler(
       return next(new CustomError(400, "All fields are required"));
     }
 
+    const duplicate = await SupplierProfile.findOne({
+      $or: [
+        { supplierName },
+        { contactNumber }
+      ],
+      isDeleted: false
+    });
+
+    if (duplicate) {
+      if (duplicate.supplierName === supplierName) {
+        return next(new CustomError(400, "Supplier name already exists"));
+      }
+      if (duplicate.contactNumber === contactNumber) {
+        return next(new CustomError(400, "Contact number already exists"));
+      }
+    }
+
     const supplier = await SupplierProfile.create({
       supplierName,
       contactNumber,
@@ -96,6 +113,24 @@ export const updateSupplierProfile = asyncErrorHandler(
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return next(new CustomError(400, "Invalid supplier profile ID format"));
     }
+    const duplicate = await SupplierProfile.findOne({
+      _id: { $ne: id },
+      $or: [
+        { supplierName },
+        { contactNumber }
+      ],
+      isDeleted: false
+    });
+
+    if (duplicate) {
+      if (duplicate.supplierName === supplierName) {
+        return next(new CustomError(400, "Supplier name already exists"));
+      }
+      if (duplicate.contactNumber === contactNumber) {
+        return next(new CustomError(400, "Contact number already exists"));
+      }
+    }
+
     const supplier = await SupplierProfile.findByIdAndUpdate(
       id,
       { $set: { supplierName, contactNumber } },

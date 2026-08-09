@@ -72,10 +72,19 @@ export const getAllPurchases = asyncErrorHandler(async (req, res, next) => {
     sortOrder = "desc",
     isDeleted,
     status,
+    supplierId,
   } = req.query;
 
   // Build query
   const query = {};
+
+  if (supplierId) {
+    if (mongoose.Types.ObjectId.isValid(supplierId)) {
+      query.supplierId = new mongoose.Types.ObjectId(supplierId);
+    } else {
+      query.supplierId = supplierId;
+    }
+  }
 
   // Filter by isDeleted status if provided
   // Supports: ?isDeleted=true, ?isDeleted=false, or omit to default to false
@@ -142,6 +151,7 @@ export const getAllPurchases = asyncErrorHandler(async (req, res, next) => {
   sort[sortBy] = sortOrder === "asc" ? 1 : -1;
 
   // Execute query with population
+  console.log("getAllPurchases query:", JSON.stringify(query));
   const purchases = await Purchasing.find(query)
     .populate("purchasedBy", "name role")
     .populate("supplierId", "supplierName supplierCode")
