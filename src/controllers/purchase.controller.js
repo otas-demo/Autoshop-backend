@@ -332,3 +332,102 @@ export const restorePurchase = asyncErrorHandler(async (req, res, next) => {
     data: purchase,
   });
 });
+
+export const getPurchaseReport = asyncErrorHandler(async (req, res, next) => {
+  const query = { isDeleted: false };
+
+  try {
+    const dateFilter = createDateFilter(req.query, "createdAt", false);
+    Object.assign(query, dateFilter);
+  } catch (error) {
+    if (error instanceof CustomError) {
+      return next(error);
+    }
+    return next(new CustomError(400, error.message || "Invalid date filter"));
+  }
+
+  // 1. Overall stats
+  const overallStats = await Purchasing.aggregate([
+    { $match: query },
+    {
+      $group: {
+        _id: null,
+        totalAmount: { $sum: "$totalAmount" },
+        count: { $sum: 1 },
+        averageAmount: { $avg: "$totalAmount" },
+      },
+    },
+  ]);
+
+  const stats = overallStats[0] || {
+    totalAmount: 0,
+    count: 0,
+    averageAmount: 0,
+  };
+
+  // 2. Status breakdown
+  const statusBreakdown = await Purchasing.aggregate([
+    { $match: query },
+    {
+      $group: {
+        _id: "$status",
+        count: { $sum: 1 },
+        totalAmount: { $sum: "$totalAmount" },
+      },
+    },
+  ]);
+
+  // 3. Supplier breakdown
+  const supplierBreakdown = await Purchasing.aggregate([
+    { $match: query },
+    {
+      $group: {
+        _id: "$supplierId",
+        totalAmount: { $sum: "$totalAmount" },
+        count: { $sum: 1 },
+      },
+    },
+    { $sort: { totalAmount: -1 } },
+  ]);
+
+  // Populate supplier names
+  const populatedSupplierBreakdown = await Promise.all(
+    supplierBreakdown.map(async (item) => {
+      const supplier = await mongoose.model("SupplierProfile").findById(item._id).select("supplierName supplierCode");
+      return {
+        supplierId: item._id,
+        supplierName: supplier ? supplier.supplierName : "Unknown Supplier",
+        supplierCode: supplier ? supplier.supplierCode : "UNKNOWN",
+        totalAmount: item.totalAmount,
+        count: item.count,
+      };
+    })
+  );
+
+  // 4. Top purchased products
+  const productBreakdown = await Purchasing.aggregate([
+    { $match: query },
+    { $unwind: "$products" },
+    {
+      $group: {
+        _id: "$products.inventoryId",
+        productName: { $first: "$products.productName" },
+        productCode: { $first: "$products.productCode" },
+        totalQuantity: { $sum: "$products.purchaseQuantity" },
+        totalCost: { $sum: { $multiply: ["$products.buyingPrice", "$products.purchaseQuantity"] } },
+      },
+    },
+    { $sort: { totalQuantity: -1 } },
+    { $limit: 10 },
+  ]);
+
+  res.status(200).json({
+    success: true,
+    data: {
+      overall: stats,
+      statusBreakdown,
+      supplierBreakdown: populatedSupplierBreakdown,
+      productBreakdown,
+    },
+  });
+});

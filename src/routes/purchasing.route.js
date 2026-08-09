@@ -6,6 +6,7 @@ import {
   updatePurchaseStatus,
   softDeletePurchase,
   restorePurchase,
+  getPurchaseReport,
 } from "../controllers/purchase.controller.js";
 import {
   protect,
@@ -25,6 +26,12 @@ router.get(
   protect,
   permissionGranted("owner", "admin"),
   getAllPurchases
+);
+router.get(
+  "/purchase/report",
+  protect,
+  permissionGranted("owner", "admin"),
+  getPurchaseReport
 );
 router.get(
   "/purchase/:id",
