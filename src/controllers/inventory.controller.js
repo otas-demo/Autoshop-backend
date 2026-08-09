@@ -121,46 +121,10 @@ export const getAllInventory = asyncErrorHandler(async (req, res, next) => {
   // Execute query
   const inventory = await queryChain;
 
-  // Enhance products with expiry info from WarehouseStock and StorefrontInventory
-  const enrichedInventory = [];
-  for (const item of inventory) {
-    const id = item._id;
-
-    // Find all active stocks with expiry dates
-    const wStocks = await WarehouseStock.find({ inventoryId: id, expiryDate: { $ne: null } }).select("expiryDate");
-    const sStocks = await StorefrontInventory.find({ inventoryId: id, expiryDate: { $ne: null } }).select("expiryDate");
-
-    const allExpiries = [...wStocks, ...sStocks]
-      .map(s => s.expiryDate)
-      .filter(d => d !== null && !isNaN(new Date(d).getTime()))
-      .sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
-
-    let nearestExpiryDate = null;
-    let isExpired = false;
-    let isExpiringSoon = false;
-
-    if (allExpiries.length > 0) {
-      nearestExpiryDate = allExpiries[0];
-      const now = new Date();
-      const expiryTime = new Date(nearestExpiryDate).getTime();
-      const warningTime = now.getTime() + (30 * 24 * 60 * 60 * 1000); // 30 days
-
-      isExpired = expiryTime <= now.getTime();
-      isExpiringSoon = !isExpired && expiryTime <= warningTime;
-    }
-
-    enrichedInventory.push({
-      ...item.toObject(),
-      nearestExpiryDate,
-      isExpired,
-      isExpiringSoon
-    });
-  }
-
   const response = {
     success: true,
     message: "Inventory items retrieved successfully",
-    data: enrichedInventory,
+    data: inventory,
   };
 
   // Only include pagination info if pagination was applied
@@ -645,5 +609,41 @@ export const getAllCategories = asyncErrorHandler(async (req, res, next) => {
     success: true,
     message: "Categories retrieved successfully",
     data: categories.filter(Boolean), // Remove any null or undefined values
+  });
+});
+
+// Update expiry date for a specific stock batch (warehouse or storefront)
+export const updateBatchExpiryDate = asyncErrorHandler(async (req, res, next) => {
+  const { inventoryId, locationId, locationType, batchNumber, expiryDate } = req.body;
+
+  if (!inventoryId || !locationId || !locationType || !expiryDate) {
+    return next(new CustomError(400, "Missing required fields"));
+  }
+
+  let updatedRecord;
+  const targetExpiryDate = expiryDate ? new Date(expiryDate) : null;
+
+  if (locationType === "warehouse") {
+    updatedRecord = await WarehouseStock.findOneAndUpdate(
+      { inventoryId, warehouseId: locationId, batchNumber },
+      { $set: { expiryDate: targetExpiryDate, lastUpdated: new Date() } },
+      { new: true }
+    );
+  } else {
+    updatedRecord = await StorefrontInventory.findOneAndUpdate(
+      { inventoryId, storefrontId: locationId, batchNumber },
+      { $set: { expiryDate: targetExpiryDate, lastUpdated: new Date() } },
+      { new: true }
+    );
+  }
+
+  if (!updatedRecord) {
+    return next(new CustomError(404, "Stock batch record not found"));
+  }
+
+  res.status(200).json({
+    success: true,
+    message: "Expiry date updated successfully",
+    data: updatedRecord,
   });
 });

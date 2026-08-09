@@ -7,6 +7,7 @@ import {
   updateInventory,
   importInventoryFromExcel,
   getAllCategories,
+  updateBatchExpiryDate,
 } from "../controllers/inventory.controller.js";
 import { protect } from "../controllers/administrationPolicy.controller.js";
 import { permissionGranted } from "../controllers/administrationPolicy.controller.js";
@@ -82,6 +83,14 @@ router.patch(
   protect,
   permissionGranted("owner"),
   updateInventory,
+);
+
+// Update batch expiry date
+router.patch(
+  "/inventory/batch/expiry",
+  protect,
+  permissionGranted("owner", "admin"),
+  updateBatchExpiryDate,
 );
 
 export default router;

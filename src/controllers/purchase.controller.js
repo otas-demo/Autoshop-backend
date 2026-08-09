@@ -418,7 +418,6 @@ export const getPurchaseReport = asyncErrorHandler(async (req, res, next) => {
       },
     },
     { $sort: { totalQuantity: -1 } },
-    { $limit: 10 },
   ]);
 
   res.status(200).json({

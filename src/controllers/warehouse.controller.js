@@ -186,12 +186,17 @@ export const getAllWarehouseStock = asyncErrorHandler(
       isLowStock,
       search,
       category,
+      batchNumber,
       sortBy = "createdAt",
       sortOrder = "desc",
     } = req.query;
 
     // Build query
     const query = {};
+
+    if (batchNumber) {
+      query.batchNumber = batchNumber;
+    }
 
     if (warehouseId) {
       if (!mongoose.Types.ObjectId.isValid(warehouseId)) {

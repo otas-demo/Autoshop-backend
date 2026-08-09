@@ -187,12 +187,17 @@ export const getAllStorefrontInventory = asyncErrorHandler(
       isLowStock,
       search,
       category,
+      batchNumber,
       sortBy = "createdAt",
       sortOrder = "desc",
     } = req.query;
 
     // Build query
     const query = {};
+
+    if (batchNumber) {
+      query.batchNumber = batchNumber;
+    }
 
     if (storefrontId) {
       if (!mongoose.Types.ObjectId.isValid(storefrontId)) {

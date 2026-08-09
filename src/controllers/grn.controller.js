@@ -625,6 +625,11 @@ export const updateGRNLineItems = asyncErrorHandler(async (req, res, next) => {
     lineItem.goodQuantity = updateItem.goodQuantity;
     lineItem.badQuantity = updateItem.badQuantity;
 
+    // Update expiryDate if provided
+    if (updateItem.expiryDate !== undefined) {
+      lineItem.expiryDate = updateItem.expiryDate ? new Date(updateItem.expiryDate) : null;
+    }
+
     // Update notes if provided
     if (updateItem.notes !== undefined) {
       lineItem.notes = updateItem.notes || null;
