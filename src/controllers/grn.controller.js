@@ -100,6 +100,16 @@ export const createGRN = asyncErrorHandler(async (req, res, next) => {
   const grnLineItems = [];
   let calculatedTotalAmount = 0;
 
+  // Generate one shared default batch number for all products in this GRN
+  // (used only for products that don't supply their own batchNumber)
+  const now = new Date();
+  const dateStr =
+    now.getFullYear() +
+    String(now.getMonth() + 1).padStart(2, "0") +
+    String(now.getDate()).padStart(2, "0");
+  const randomAlphanumeric = Math.random().toString(36).substring(2, 6).toUpperCase();
+  const sharedDefaultBatchNumber = `BAT-${dateStr}-${randomAlphanumeric}`;
+
   // Process only the products that user wants to receive (partial GRN)
   for (const [productCodeUpper, userItem] of userLineItemsMap) {
     // Find the corresponding PO product
@@ -259,10 +269,8 @@ export const createGRN = asyncErrorHandler(async (req, res, next) => {
     // Build line item with all data auto-filled from PO
     let itemBatchNumber = userItem.batchNumber || null;
     if (!itemBatchNumber || itemBatchNumber.trim() === "") {
-      const now = new Date();
-      const dateStr = now.getFullYear() + String(now.getMonth() + 1).padStart(2, "0") + String(now.getDate()).padStart(2, "0");
-      const randomAlphanumeric = Math.random().toString(36).substring(2, 6).toUpperCase();
-      itemBatchNumber = `BAT-${dateStr}-${randomAlphanumeric}`;
+      // Use the shared batch number so all products in this GRN get the same batch
+      itemBatchNumber = sharedDefaultBatchNumber;
     }
 
     const grnLineItem = {

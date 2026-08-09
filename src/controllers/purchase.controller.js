@@ -3,6 +3,8 @@ import Purchasing from "../models/purchasing.model.js";
 import { asyncErrorHandler } from "../utils/asyncErrorHandler.js";
 import CustomError from "../utils/customError.js";
 import Inventory from "../models/inventory.model.js";
+import WarehouseStock from "../models/warehouse.model.js";
+import StorefrontInventory from "../models/storefrontInventory.model.js";
 import { createDateFilter } from "../utils/dateFilter.utils.js";
 
 export const createPurchase = asyncErrorHandler(async (req, res, next) => {
@@ -420,6 +422,51 @@ export const getPurchaseReport = asyncErrorHandler(async (req, res, next) => {
     { $sort: { totalQuantity: -1 } },
   ]);
 
+  // 5. Low quantity products (total quantity <= threshold, and status is "active")
+  const threshold = parseInt(req.query.lowStockThreshold) || 50;
+
+  const activeInventories = await Inventory.find({ status: "active" }).lean();
+  const warehouseSums = await WarehouseStock.aggregate([
+    { $group: { _id: "$inventoryId", qty: { $sum: "$quantity" } } }
+  ]);
+  const storefrontSums = await StorefrontInventory.aggregate([
+    { $group: { _id: "$inventoryId", qty: { $sum: "$quantity" } } }
+  ]);
+
+  const stockMap = {};
+  warehouseSums.forEach(item => {
+    if (item._id) {
+      stockMap[item._id.toString()] = (stockMap[item._id.toString()] || 0) + item.qty;
+    }
+  });
+  storefrontSums.forEach(item => {
+    if (item._id) {
+      stockMap[item._id.toString()] = (stockMap[item._id.toString()] || 0) + item.qty;
+    }
+  });
+
+  const lowQuantityProducts = activeInventories.map(inv => {
+    const totalQuantity = stockMap[inv._id.toString()] || 0;
+    return {
+      _id: inv._id,
+      productName: inv.productName,
+      productCode: inv.productCode,
+      reorderPoint: threshold, // Return the requested threshold so UI can show it
+      totalQuantity,
+      unitOfMeasure: inv.unitOfMeasure,
+      buyingPrice: inv.buyingPrice,
+      sellingPrice: inv.sellingPrice
+    };
+  }).filter(item => item.totalQuantity <= threshold)
+    .sort((a, b) => a.totalQuantity - b.totalQuantity);
+
+  // Paginate lowQuantityProducts
+  const lowStockPageNum = parseInt(req.query.lowStockPage) || 1;
+  const lowStockLimitNum = parseInt(req.query.lowStockLimit) || 10;
+  const skip = (lowStockPageNum - 1) * lowStockLimitNum;
+  const totalItems = lowQuantityProducts.length;
+  const paginatedLowQuantityProducts = lowQuantityProducts.slice(skip, skip + lowStockLimitNum);
+
   res.status(200).json({
     success: true,
     data: {
@@ -427,6 +474,13 @@ export const getPurchaseReport = asyncErrorHandler(async (req, res, next) => {
       statusBreakdown,
       supplierBreakdown: populatedSupplierBreakdown,
       productBreakdown,
+      lowQuantityProducts: paginatedLowQuantityProducts,
+      lowQuantityPagination: {
+        currentPage: lowStockPageNum,
+        totalPages: Math.ceil(totalItems / lowStockLimitNum),
+        totalItems,
+        itemsPerPage: lowStockLimitNum
+      }
     },
   });
 });

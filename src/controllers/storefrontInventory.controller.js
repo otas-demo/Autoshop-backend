@@ -244,40 +244,6 @@ export const getAllStorefrontInventory = asyncErrorHandler(
       pipeline.push({ $match: { "inventoryId.category": category } });
     }
 
-    pipeline.push(
-      {
-        $lookup: {
-          from: "locationprofiles",
-          localField: "storefrontId",
-          foreignField: "_id",
-          as: "storefrontId",
-        },
-      },
-      { $unwind: "$storefrontId" },
-      {
-        $project: {
-          _id: 1,
-          quantity: 1,
-          isLowStock: 1,
-          lastUpdated: 1,
-          createdAt: 1,
-          updatedAt: 1,
-          "inventoryId._id": 1,
-          "inventoryId.productName": 1,
-          "inventoryId.productCode": 1,
-          "inventoryId.SKU": 1,
-          "inventoryId.category": 1,
-          "inventoryId.sellingPrice": 1,
-          "inventoryId.wholesalePrices": 1,
-          "inventoryId.barcode": 1,
-          "inventoryId.status": 1,
-          "storefrontId._id": 1,
-          "storefrontId.locationName": 1,
-          "storefrontId.locationCode": 1,
-        },
-      },
-    );
-
     if (search) {
       pipeline.push({
         $match: {
@@ -289,6 +255,50 @@ export const getAllStorefrontInventory = asyncErrorHandler(
         },
       });
     }
+
+    // GROUP BY PRODUCT (inventoryId) - Summing up quantities of different batches
+    pipeline.push(
+      {
+        $group: {
+          _id: {
+            inventoryId: "$inventoryId._id",
+            storefrontId: "$storefrontId"
+          },
+          quantity: { $sum: "$quantity" },
+          isLowStock: { $max: "$isLowStock" },
+          lastUpdated: { $max: "$lastUpdated" },
+          createdAt: { $min: "$createdAt" },
+          updatedAt: { $max: "$updatedAt" },
+          inventoryId: { $first: "$inventoryId" }
+        }
+      },
+      {
+        $lookup: {
+          from: "locationprofiles",
+          localField: "_id.storefrontId",
+          foreignField: "_id",
+          as: "storefrontId",
+        },
+      },
+      { $unwind: "$storefrontId" },
+      {
+        $project: {
+          _id: "$_id.inventoryId", // Set _id as the inventory ID for consistency
+          quantity: 1,
+          isLowStock: 1,
+          lastUpdated: 1,
+          createdAt: 1,
+          updatedAt: 1,
+          inventoryId: 1,
+          storefrontId: {
+            _id: "$storefrontId._id",
+            locationName: "$storefrontId.locationName",
+            locationCode: "$storefrontId.locationCode"
+          }
+        }
+      }
+    );
+
 
     // Build query chain using aggregate for status filtering and summary statistics
     const summaryPipeline = [
