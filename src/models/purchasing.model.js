@@ -89,6 +89,25 @@ const PurchasingSchema = new mongoose.Schema(
       type: Number,
       required: true,
     },
+    paymentType: {
+      type: String,
+      enum: ["paid", "credit"],
+      default: "paid",
+    },
+    paidAmount: {
+      type: Number,
+      default: 0,
+      min: [0, "Paid amount cannot be negative"],
+    },
+    paymentStatus: {
+      type: String,
+      enum: ["unpaid", "partially_paid", "paid"],
+      default: "paid",
+    },
+    dueDate: {
+      type: Date,
+      default: null,
+    },
     purchasedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Admin",
@@ -110,6 +129,19 @@ const PurchasingSchema = new mongoose.Schema(
     toObject: { virtuals: true },
   }
 );
+
+// Virtual for remaining debt balance (totalAmount - paidAmount)
+PurchasingSchema.virtual("remainingBalance").get(function () {
+  const total = this.totalAmount || 0;
+  const paid = this.paidAmount || 0;
+  return Math.max(0, total - paid);
+});
+
+// Virtual for overdue status
+PurchasingSchema.virtual("isOverdue").get(function () {
+  if (!this.dueDate || this.paymentStatus === "paid") return false;
+  return new Date() > new Date(this.dueDate);
+});
 
 // Static method to generate PO number
 // Format: PO-YYYY-MM-DD-NNNNNN (e.g., PO-2024-01-14-000001)
@@ -152,6 +184,9 @@ PurchasingSchema.index({ supplierId: 1 });
 PurchasingSchema.index({ createdAt: -1 });
 PurchasingSchema.index({ isDeleted: 1 });
 PurchasingSchema.index({ status: 1, isDeleted: 1 }); // Compound index for common queries
+PurchasingSchema.index({ paymentStatus: 1 });
+PurchasingSchema.index({ paymentType: 1 });
+PurchasingSchema.index({ dueDate: 1 });
 
 const Purchasing = mongoose.model("Purchasing", PurchasingSchema);
 

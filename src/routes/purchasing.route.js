@@ -7,6 +7,9 @@ import {
   softDeletePurchase,
   restorePurchase,
   getPurchaseReport,
+  recordPurchasePayment,
+  getPurchasePayments,
+  updatePurchaseDueDate,
 } from "../controllers/purchase.controller.js";
 import {
   protect,
@@ -44,6 +47,24 @@ router.patch(
   protect,
   permissionGranted("owner", "admin"),
   updatePurchaseStatus
+);
+router.post(
+  "/purchase/:id/payments",
+  protect,
+  permissionGranted("owner", "admin"),
+  recordPurchasePayment
+);
+router.get(
+  "/purchase/:id/payments",
+  protect,
+  permissionGranted("owner", "admin"),
+  getPurchasePayments
+);
+router.patch(
+  "/purchase/:id/due-date",
+  protect,
+  permissionGranted("owner", "admin"),
+  updatePurchaseDueDate
 );
 router.patch(
   "/purchase/:id/soft-delete",

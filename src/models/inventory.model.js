@@ -130,6 +130,12 @@ const inventorySchema = new mongoose.Schema(
       maxlength: [1000, "Note cannot exceed 1000 characters"],
       default: "",
     },
+    supplierIds: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "SupplierProfile",
+      },
+    ],
     // createdBy: {
     //   type: mongoose.Schema.Types.ObjectId,
     //   ref: "User",
@@ -153,6 +159,7 @@ const inventorySchema = new mongoose.Schema(
 inventorySchema.index({ category: 1 });
 inventorySchema.index({ category: 1, subCategory: 1 });
 inventorySchema.index({ status: 1 });
+inventorySchema.index({ supplierIds: 1 });
 inventorySchema.index({ productName: "text", description: "text" }); // Text search index
 
 // Virtual for profit margin

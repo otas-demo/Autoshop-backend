@@ -67,6 +67,7 @@ export const getAllInventory = asyncErrorHandler(async (req, res, next) => {
     category,
     status,
     search,
+    supplierId,
     sortBy = "createdAt",
     sortOrder = "desc",
   } = req.query;
@@ -82,6 +83,14 @@ export const getAllInventory = asyncErrorHandler(async (req, res, next) => {
     query.status = status;
   }
 
+  if (supplierId) {
+    if (mongoose.Types.ObjectId.isValid(supplierId)) {
+      query.supplierIds = new mongoose.Types.ObjectId(supplierId);
+    } else {
+      query.supplierIds = supplierId;
+    }
+  }
+
   if (search) {
     query.$or = [
       { productName: { $regex: search, $options: "i" } },
@@ -94,7 +103,9 @@ export const getAllInventory = asyncErrorHandler(async (req, res, next) => {
   sort[sortBy] = sortOrder === "asc" ? 1 : -1;
 
   // Build query chain
-  let queryChain = Inventory.find(query).sort(sort);
+  let queryChain = Inventory.find(query)
+    .sort(sort)
+    .populate("supplierIds", "supplierName contactNumber");
 
   // Apply pagination only if page or limit is provided
   const usePagination = page !== undefined || limit !== undefined;
@@ -144,7 +155,10 @@ export const getInventoryById = asyncErrorHandler(async (req, res, next) => {
     return next(new CustomError(400, "Invalid inventory ID format"));
   }
 
-  const inventory = await Inventory.findById(id);
+  const inventory = await Inventory.findById(id).populate(
+    "supplierIds",
+    "supplierName contactNumber",
+  );
 
   if (!inventory) {
     return next(new CustomError(404, "Inventory item not found"));

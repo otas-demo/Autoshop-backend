@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import Purchasing from "../models/purchasing.model.js";
+import PurchasePaymentRecord from "../models/purchasePaymentRecord.model.js";
 import { asyncErrorHandler } from "../utils/asyncErrorHandler.js";
 import CustomError from "../utils/customError.js";
 import Inventory from "../models/inventory.model.js";
@@ -8,7 +9,16 @@ import StorefrontInventory from "../models/storefrontInventory.model.js";
 import { createDateFilter } from "../utils/dateFilter.utils.js";
 
 export const createPurchase = asyncErrorHandler(async (req, res, next) => {
-  const { supplierId, products, note, totalAmount } = req.body;
+  const {
+    supplierId,
+    products,
+    note,
+    totalAmount,
+    paymentType = "paid",
+    paidAmount = 0,
+    dueDate,
+    paymentMethod = "cash",
+  } = req.body;
   const purchasedBy = req.user._id;
 
   if (!supplierId || !products || products.length === 0) {
@@ -44,6 +54,43 @@ export const createPurchase = asyncErrorHandler(async (req, res, next) => {
     })
   );
 
+  // Validate and determine payment fields
+  let initialPaidAmount = 0;
+  let paymentStatus = "paid";
+  let parsedDueDate = null;
+
+  if (paymentType === "credit") {
+    initialPaidAmount = Math.max(0, Number(paidAmount) || 0);
+    if (initialPaidAmount > totalAmount) {
+      return next(
+        new CustomError(
+          400,
+          `Initial paid amount (${initialPaidAmount}) cannot exceed total purchase amount (${totalAmount})`
+        )
+      );
+    }
+
+    if (initialPaidAmount >= totalAmount) {
+      paymentStatus = "paid";
+    } else if (initialPaidAmount > 0) {
+      paymentStatus = "partially_paid";
+    } else {
+      paymentStatus = "unpaid";
+    }
+
+    if (dueDate) {
+      parsedDueDate = new Date(dueDate);
+      if (isNaN(parsedDueDate.getTime())) {
+        return next(new CustomError(400, "Invalid due date format"));
+      }
+    }
+  } else {
+    // Standard paid in full
+    initialPaidAmount = totalAmount;
+    paymentStatus = "paid";
+    parsedDueDate = null;
+  }
+
   // Generate PO number
   const poNumber = await Purchasing.generatePONumber();
 
@@ -53,9 +100,33 @@ export const createPurchase = asyncErrorHandler(async (req, res, next) => {
     products: productsWithDetails,
     note: note || "No note available",
     totalAmount,
+    paymentType: paymentType === "credit" ? "credit" : "paid",
+    paidAmount: initialPaidAmount,
+    paymentStatus,
+    dueDate: parsedDueDate,
     status: "pending",
     purchasedBy,
   });
+
+  // If initial payment was made, create initial PurchasePaymentRecord
+  if (initialPaidAmount > 0) {
+    try {
+      await PurchasePaymentRecord.create({
+        purchaseId: purchase._id,
+        supplierId,
+        paidAmount: initialPaidAmount,
+        paymentDate: new Date(),
+        paymentMethod: paymentMethod || "cash",
+        notes:
+          paymentType === "credit"
+            ? "Initial down payment upon purchase order creation"
+            : "Full payment upon purchase order creation",
+        recordedBy: purchasedBy,
+      });
+    } catch (err) {
+      console.error("Failed to create initial PurchasePaymentRecord:", err);
+    }
+  }
 
   res.status(201).json({
     success: true,
@@ -73,6 +144,8 @@ export const getAllPurchases = asyncErrorHandler(async (req, res, next) => {
     isDeleted,
     status,
     supplierId,
+    paymentType,
+    paymentStatus,
   } = req.query;
 
   // Build query
@@ -83,6 +156,21 @@ export const getAllPurchases = asyncErrorHandler(async (req, res, next) => {
       query.supplierId = new mongoose.Types.ObjectId(supplierId);
     } else {
       query.supplierId = supplierId;
+    }
+  }
+
+  // Filter by paymentType if provided
+  if (paymentType) {
+    query.paymentType = paymentType;
+  }
+
+  // Filter by paymentStatus if provided
+  if (paymentStatus) {
+    if (paymentStatus === "overdue") {
+      query.paymentStatus = { $ne: "paid" };
+      query.dueDate = { $lt: new Date() };
+    } else {
+      query.paymentStatus = paymentStatus;
     }
   }
 
@@ -154,7 +242,7 @@ export const getAllPurchases = asyncErrorHandler(async (req, res, next) => {
   console.log("getAllPurchases query:", JSON.stringify(query));
   const purchases = await Purchasing.find(query)
     .populate("purchasedBy", "name role")
-    .populate("supplierId", "supplierName supplierCode")
+    .populate("supplierId", "supplierName supplierCode contactNumber")
     .sort(sort)
     .skip(skip)
     .limit(limitNum);
@@ -208,10 +296,9 @@ export const getPurchaseById = asyncErrorHandler(async (req, res, next) => {
   const includeDeleted = req.query.includeDeleted === "true";
   const query = includeDeleted ? { _id: id } : { _id: id, isDeleted: false };
 
-  const purchase = await Purchasing.findOne(query).populate(
-    "purchasedBy",
-    "name role"
-  );
+  const purchase = await Purchasing.findOne(query)
+    .populate("purchasedBy", "name role")
+    .populate("supplierId", "supplierName supplierCode contactNumber");
 
   if (!purchase) {
     return next(new CustomError(404, "Purchase not found"));
@@ -284,6 +371,167 @@ export const updatePurchaseStatus = asyncErrorHandler(
   }
 );
 
+// Record credit payment on purchase order
+export const recordPurchasePayment = asyncErrorHandler(
+  async (req, res, next) => {
+    const { id } = req.params;
+    const { paidAmount, paymentMethod = "cash", notes, paymentDate } = req.body;
+    const recordedBy = req.user._id;
+
+    // Validate MongoDB ObjectId format
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return next(new CustomError(400, "Invalid purchase order ID format"));
+    }
+
+    const paymentNumber = Number(paidAmount);
+    if (isNaN(paymentNumber) || paymentNumber <= 0) {
+      return next(new CustomError(400, "Paid amount must be a number greater than 0"));
+    }
+
+    const session = await mongoose.startSession();
+    try {
+      let resultData;
+      await session.withTransaction(async () => {
+        const purchase = await Purchasing.findById(id).session(session);
+        if (!purchase) {
+          throw new CustomError(404, "Purchase order not found");
+        }
+
+        if (purchase.isDeleted) {
+          throw new CustomError(
+            400,
+            "Cannot record payment for a deleted purchase order"
+          );
+        }
+
+        if (purchase.paymentType !== "credit") {
+          throw new CustomError(
+            400,
+            "Can only record credit payments for credit purchase orders"
+          );
+        }
+
+        const currentPaid = purchase.paidAmount || 0;
+        const currentRemaining = Math.max(0, purchase.totalAmount - currentPaid);
+
+        if (currentRemaining <= 0 || purchase.paymentStatus === "paid") {
+          throw new CustomError(
+            400,
+            "This purchase order is already fully paid"
+          );
+        }
+
+        if (paymentNumber > currentRemaining) {
+          throw new CustomError(
+            400,
+            `Payment amount (${paymentNumber.toLocaleString()}) exceeds remaining balance (${currentRemaining.toLocaleString()}). Maximum allowed payment: ${currentRemaining.toLocaleString()}`
+          );
+        }
+
+        const newPaidTotal = currentPaid + paymentNumber;
+        const isFullyPaid = newPaidTotal >= purchase.totalAmount;
+        const newPaymentStatus = isFullyPaid ? "paid" : "partially_paid";
+
+        purchase.paidAmount = newPaidTotal;
+        purchase.paymentStatus = newPaymentStatus;
+        await purchase.save({ session });
+
+        const [paymentRecord] = await PurchasePaymentRecord.create(
+          [
+            {
+              purchaseId: purchase._id,
+              supplierId: purchase.supplierId,
+              paidAmount: paymentNumber,
+              paymentDate: paymentDate ? new Date(paymentDate) : new Date(),
+              paymentMethod,
+              notes: notes || null,
+              recordedBy,
+            },
+          ],
+          { session }
+        );
+
+        resultData = {
+          paymentRecord,
+          purchase: purchase.toObject({ virtuals: true }),
+        };
+      });
+
+      res.status(201).json({
+        success: true,
+        message: "Purchase payment recorded successfully",
+        data: resultData,
+      });
+    } finally {
+      await session.endSession();
+    }
+  }
+);
+
+// Get all payment logs for a purchase order
+export const getPurchasePayments = asyncErrorHandler(
+  async (req, res, next) => {
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return next(new CustomError(400, "Invalid purchase order ID format"));
+    }
+
+    const payments = await PurchasePaymentRecord.find({
+      purchaseId: id,
+      isDeleted: false,
+    })
+      .populate("recordedBy", "name role")
+      .populate("supplierId", "supplierName supplierCode")
+      .sort({ paymentDate: -1, createdAt: -1 });
+
+    res.status(200).json({
+      success: true,
+      message: "Purchase payment records retrieved successfully",
+      data: payments,
+    });
+  }
+);
+
+// Update due date for a credit purchase order
+export const updatePurchaseDueDate = asyncErrorHandler(
+  async (req, res, next) => {
+    const { id } = req.params;
+    const { dueDate } = req.body;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return next(new CustomError(400, "Invalid purchase order ID format"));
+    }
+
+    if (!dueDate) {
+      return next(new CustomError(400, "Due date is required"));
+    }
+
+    const parsedDate = new Date(dueDate);
+    if (isNaN(parsedDate.getTime())) {
+      return next(new CustomError(400, "Invalid due date format"));
+    }
+
+    const purchase = await Purchasing.findOne({
+      _id: id,
+      isDeleted: false,
+    });
+
+    if (!purchase) {
+      return next(new CustomError(404, "Purchase order not found"));
+    }
+
+    purchase.dueDate = parsedDate;
+    await purchase.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Purchase due date updated successfully",
+      data: purchase,
+    });
+  }
+);
+
 // Soft delete purchase order
 export const softDeletePurchase = asyncErrorHandler(async (req, res, next) => {
   const { id } = req.params;
@@ -347,6 +595,14 @@ export const restorePurchase = asyncErrorHandler(async (req, res, next) => {
 
 export const getPurchaseReport = asyncErrorHandler(async (req, res, next) => {
   const query = { isDeleted: false };
+
+  if (req.query.supplierId) {
+    if (mongoose.Types.ObjectId.isValid(req.query.supplierId)) {
+      query.supplierId = new mongoose.Types.ObjectId(req.query.supplierId);
+    } else {
+      query.supplierId = req.query.supplierId;
+    }
+  }
 
   try {
     const dateFilter = createDateFilter(req.query, "createdAt", false);
@@ -477,6 +733,39 @@ export const getPurchaseReport = asyncErrorHandler(async (req, res, next) => {
   const totalItems = lowQuantityProducts.length;
   const paginatedLowQuantityProducts = lowQuantityProducts.slice(skip, skip + lowStockLimitNum);
 
+  // 6. Credit purchase stats
+  const creditStatsResult = await Purchasing.aggregate([
+    { $match: { ...query, paymentType: "credit" } },
+    {
+      $group: {
+        _id: null,
+        totalCreditAmount: { $sum: "$totalAmount" },
+        totalPaid: { $sum: "$paidAmount" },
+        count: { $sum: 1 },
+      },
+    },
+  ]);
+
+  const overdueCount = await Purchasing.countDocuments({
+    ...query,
+    paymentType: "credit",
+    paymentStatus: { $ne: "paid" },
+    dueDate: { $lt: new Date() },
+  });
+
+  const creditStats = creditStatsResult[0] || {
+    totalCreditAmount: 0,
+    totalPaid: 0,
+    count: 0,
+  };
+  const creditSummary = {
+    totalCreditAmount: creditStats.totalCreditAmount,
+    totalPaid: creditStats.totalPaid,
+    totalRemaining: Math.max(0, creditStats.totalCreditAmount - creditStats.totalPaid),
+    creditCount: creditStats.count,
+    overdueCount,
+  };
+
   res.status(200).json({
     success: true,
     data: {
@@ -484,13 +773,14 @@ export const getPurchaseReport = asyncErrorHandler(async (req, res, next) => {
       statusBreakdown,
       supplierBreakdown: populatedSupplierBreakdown,
       productBreakdown,
+      creditSummary,
       lowQuantityProducts: paginatedLowQuantityProducts,
       lowQuantityPagination: {
         currentPage: lowStockPageNum,
         totalPages: Math.ceil(totalItems / lowStockLimitNum),
         totalItems,
-        itemsPerPage: lowStockLimitNum
-      }
+        itemsPerPage: lowStockLimitNum,
+      },
     },
   });
 });
