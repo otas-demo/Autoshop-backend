@@ -251,6 +251,7 @@ export const getAllWarehouseStock = asyncErrorHandler(
             inventoryId: "$inventoryId._id",
             warehouseId: "$warehouseId"
           },
+          stockRecordId: { $first: "$_id" },
           quantity: { $sum: "$quantity" },
           isLowStock: { $max: "$isLowStock" }, // If any batch is low stock or overall is low stock
           lastUpdated: { $max: "$lastUpdated" },
@@ -271,6 +272,7 @@ export const getAllWarehouseStock = asyncErrorHandler(
       {
         $project: {
           _id: "$_id.inventoryId", // Set _id as the inventory ID for consistency
+          stockRecordId: 1,
           quantity: 1,
           isLowStock: 1,
           lastUpdated: 1,
@@ -337,7 +339,8 @@ export const getAllWarehouseStock = asyncErrorHandler(
 
     const response = {
       success: true,
-      message: "Warehouse stock retrieved successfully (Active products only)",
+      message:
+        "Warehouse stock retrieved successfully (Active products only)",
       summary,
       data: stock,
     };
@@ -355,6 +358,7 @@ export const getAllWarehouseStock = asyncErrorHandler(
   },
 );
 
+// Get warehouse stock by ID
 export const getWarehouseStockById = asyncErrorHandler(
   async (req, res, next) => {
     const { id } = req.params;
@@ -364,12 +368,22 @@ export const getWarehouseStockById = asyncErrorHandler(
       return next(new CustomError(400, "Invalid warehouse stock ID format"));
     }
 
-    const stock = await WarehouseStock.findById(id)
+    let stock = await WarehouseStock.findById(id)
       .populate(
         "inventoryId",
         "productName productCode SKU category buyingPrice sellingPrice barcode status",
       )
       .populate("warehouseId", "locationName locationCode locationAddress");
+
+    if (!stock) {
+      // Fallback search by inventoryId
+      stock = await WarehouseStock.findOne({ inventoryId: id })
+        .populate(
+          "inventoryId",
+          "productName productCode SKU category buyingPrice sellingPrice barcode status",
+        )
+        .populate("warehouseId", "locationName locationCode locationAddress");
+    }
 
     if (!stock) {
       return next(new CustomError(404, "Warehouse stock not found"));
@@ -388,7 +402,7 @@ export const getWarehouseStockById = asyncErrorHandler(
 export const updateWarehouseStockQuantity = asyncErrorHandler(
   async (req, res, next) => {
     const { id } = req.params;
-    const { quantityChange, reason } = req.body;
+    const { quantityChange, reason, warehouseId } = req.body;
 
     // Validate MongoDB ObjectId format
     if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -423,11 +437,38 @@ export const updateWarehouseStockQuantity = asyncErrorHandler(
 
     try {
       // Find the stock before the update to get the current quantity
-      // Populate inventoryId and warehouseId for validation and error messages
-      const stockToUpdate = await WarehouseStock.findById(id)
+      // Support finding by WarehouseStock document _id or product inventoryId
+      let stockToUpdate = await WarehouseStock.findById(id)
         .populate("inventoryId", "productName productCode SKU barcode")
         .populate("warehouseId", "locationName locationCode type isDeleted")
         .session(session);
+
+      if (!stockToUpdate) {
+        const query = { inventoryId: id };
+        const reqWarehouseId = warehouseId || req.query.warehouseId;
+        if (reqWarehouseId && mongoose.Types.ObjectId.isValid(reqWarehouseId)) {
+          query.warehouseId = reqWarehouseId;
+        }
+        stockToUpdate = await WarehouseStock.findOne(query)
+          .populate("inventoryId", "productName productCode SKU barcode")
+          .populate("warehouseId", "locationName locationCode type isDeleted")
+          .session(session);
+      }
+
+      if (!stockToUpdate && (warehouseId || req.query.warehouseId) && quantityChange > 0) {
+        const targetWarehouseId = warehouseId || req.query.warehouseId;
+        if (mongoose.Types.ObjectId.isValid(targetWarehouseId)) {
+          const newStock = await WarehouseStock.findOrCreateStock(
+            id,
+            targetWarehouseId,
+            "__LEGACY__"
+          );
+          stockToUpdate = await WarehouseStock.findById(newStock._id)
+            .populate("inventoryId", "productName productCode SKU barcode")
+            .populate("warehouseId", "locationName locationCode type isDeleted")
+            .session(session);
+        }
+      }
 
       if (!stockToUpdate) {
         await session.abortTransaction();
@@ -466,7 +507,7 @@ export const updateWarehouseStockQuantity = asyncErrorHandler(
 
       // Perform the update using findByIdAndUpdate with $inc for atomic operation
       const updatedStock = await WarehouseStock.findByIdAndUpdate(
-        id,
+        stockToUpdate._id,
         {
           $inc: { quantity: quantityChange },
           $set: { lastUpdated: new Date() },
@@ -486,7 +527,7 @@ export const updateWarehouseStockQuantity = asyncErrorHandler(
         adminId: adminId,
         locationId: stockToUpdate.warehouseId._id,
         locationType: "warehouse",
-        stockRecordId: id,
+        stockRecordId: stockToUpdate._id,
         beforeQuantity: beforeQuantity,
         afterQuantity: afterQuantity,
         quantityChange: quantityChange,

@@ -264,6 +264,7 @@ export const getAllStorefrontInventory = asyncErrorHandler(
             inventoryId: "$inventoryId._id",
             storefrontId: "$storefrontId"
           },
+          stockRecordId: { $first: "$_id" },
           quantity: { $sum: "$quantity" },
           isLowStock: { $max: "$isLowStock" },
           lastUpdated: { $max: "$lastUpdated" },
@@ -284,6 +285,7 @@ export const getAllStorefrontInventory = asyncErrorHandler(
       {
         $project: {
           _id: "$_id.inventoryId", // Set _id as the inventory ID for consistency
+          stockRecordId: 1,
           quantity: 1,
           isLowStock: 1,
           lastUpdated: 1,
@@ -381,12 +383,22 @@ export const getStorefrontInventoryById = asyncErrorHandler(
       );
     }
 
-    const stock = await StorefrontInventory.findById(id)
+    let stock = await StorefrontInventory.findById(id)
       .populate(
         "inventoryId",
         "productName productCode SKU category buyingPrice sellingPrice wholesalePrices barcode status",
       )
       .populate("storefrontId", "locationName locationCode locationAddress");
+
+    if (!stock) {
+      // Fallback search by inventoryId
+      stock = await StorefrontInventory.findOne({ inventoryId: id })
+        .populate(
+          "inventoryId",
+          "productName productCode SKU category buyingPrice sellingPrice wholesalePrices barcode status",
+        )
+        .populate("storefrontId", "locationName locationCode locationAddress");
+    }
 
     if (!stock) {
       return next(new CustomError(404, "Storefront inventory not found"));
@@ -405,7 +417,7 @@ export const getStorefrontInventoryById = asyncErrorHandler(
 export const updateStorefrontInventoryQuantity = asyncErrorHandler(
   async (req, res, next) => {
     const { id } = req.params;
-    const { quantityChange, reason } = req.body;
+    const { quantityChange, reason, storefrontId } = req.body;
 
     // Validate MongoDB ObjectId format
     if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -442,11 +454,38 @@ export const updateStorefrontInventoryQuantity = asyncErrorHandler(
 
     try {
       // Find the stock before the update to get the current quantity
-      // Populate inventoryId to get product name for error messages
-      const stockToUpdate = await StorefrontInventory.findById(id)
+      // Support finding by StorefrontInventory document _id or product inventoryId
+      let stockToUpdate = await StorefrontInventory.findById(id)
         .populate("inventoryId", "productName productCode SKU wholesalePrices")
-        .populate("storefrontId", "locationName locationCode type")
+        .populate("storefrontId", "locationName locationCode type isDeleted")
         .session(session);
+
+      if (!stockToUpdate) {
+        const query = { inventoryId: id };
+        const reqStorefrontId = storefrontId || req.query.storefrontId;
+        if (reqStorefrontId && mongoose.Types.ObjectId.isValid(reqStorefrontId)) {
+          query.storefrontId = reqStorefrontId;
+        }
+        stockToUpdate = await StorefrontInventory.findOne(query)
+          .populate("inventoryId", "productName productCode SKU wholesalePrices")
+          .populate("storefrontId", "locationName locationCode type isDeleted")
+          .session(session);
+      }
+
+      if (!stockToUpdate && (storefrontId || req.query.storefrontId) && quantityChange > 0) {
+        const targetStorefrontId = storefrontId || req.query.storefrontId;
+        if (mongoose.Types.ObjectId.isValid(targetStorefrontId)) {
+          const newStock = await StorefrontInventory.findOrCreateStock(
+            id,
+            targetStorefrontId,
+            "__LEGACY__"
+          );
+          stockToUpdate = await StorefrontInventory.findById(newStock._id)
+            .populate("inventoryId", "productName productCode SKU wholesalePrices")
+            .populate("storefrontId", "locationName locationCode type isDeleted")
+            .session(session);
+        }
+      }
 
       if (!stockToUpdate) {
         await session.abortTransaction();
@@ -485,7 +524,7 @@ export const updateStorefrontInventoryQuantity = asyncErrorHandler(
 
       // Perform the update using findByIdAndUpdate with $inc for atomic operation
       const updatedStock = await StorefrontInventory.findByIdAndUpdate(
-        id,
+        stockToUpdate._id,
         {
           $inc: { quantity: quantityChange },
           $set: { lastUpdated: new Date() },
@@ -505,7 +544,7 @@ export const updateStorefrontInventoryQuantity = asyncErrorHandler(
         adminId: adminId,
         locationId: stockToUpdate.storefrontId._id,
         locationType: "storefront",
-        stockRecordId: id,
+        stockRecordId: stockToUpdate._id,
         beforeQuantity: beforeQuantity,
         afterQuantity: afterQuantity,
         quantityChange: quantityChange,
