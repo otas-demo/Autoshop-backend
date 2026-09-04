@@ -5,6 +5,7 @@ import {
   getGRNById,
   updateGRNStatus,
   updateGRNLineItems,
+  transferGRN,
 } from "../controllers/grn.controller.js";
 
 import { protect } from "../controllers/administrationPolicy.controller.js";
@@ -40,6 +41,14 @@ router.patch(
   protect,
   permissionGranted("owner", "admin"),
   updateGRNLineItems
+);
+
+// Transfer GRN
+router.post(
+  "/grn/:id/transfer",
+  protect,
+  permissionGranted("owner", "admin"),
+  transferGRN
 );
 
 export default router;

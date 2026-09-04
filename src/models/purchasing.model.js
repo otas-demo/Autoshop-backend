@@ -25,6 +25,19 @@ const productSchema = new mongoose.Schema(
       required: true,
       // Original order quantity - never modified, preserved for record keeping
     },
+    unit: {
+      type: String,
+      default: "piece",
+    },
+    factor: {
+      type: Number,
+      default: 1,
+    },
+    baseQuantity: {
+      type: Number,
+      required: true,
+      // The equivalent base quantity (purchaseQuantity * factor)
+    },
     receivedQuantity: {
       type: Number,
       default: 0,
@@ -53,11 +66,11 @@ const productSchema = new mongoose.Schema(
   }
 );
 
-// Virtual for remaining quantity (purchaseQuantity - receivedQuantity)
+// Virtual for remaining quantity (baseQuantity - receivedQuantity)
 productSchema.virtual("remainingQuantity").get(function () {
-  const purchaseQty = this.purchaseQuantity || 0;
+  const baseQty = this.baseQuantity || (this.purchaseQuantity * (this.factor || 1)) || 0;
   const receivedQty = this.receivedQuantity || 0;
-  return Math.max(0, purchaseQty - receivedQty);
+  return Math.max(0, baseQty - receivedQty);
 });
 
 const PurchasingSchema = new mongoose.Schema(

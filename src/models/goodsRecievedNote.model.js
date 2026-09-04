@@ -136,8 +136,8 @@ const goodsRecievedNoteSchema = new mongoose.Schema(
     status: {
       type: String,
       enum: {
-        values: ["pending", "partial", "verified", "rejected"],
-        message: "Status must be pending, partial, verified, or rejected",
+        values: ["pending", "partial", "verified", "rejected", "transferred"],
+        message: "Status must be pending, partial, verified, rejected, or transferred",
       },
       default: "pending",
     },

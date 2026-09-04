@@ -5,6 +5,9 @@ import Inventory from "../models/inventory.model.js";
 import { asyncErrorHandler } from "../utils/asyncErrorHandler.js";
 import CustomError from "../utils/customError.js";
 import { createDateFilter } from "../utils/dateFilter.utils.js";
+import LocationProfile from "../models/locationProfile.model.js";
+import WarehouseStock from "../models/warehouse.model.js";
+import StorefrontInventory from "../models/storefrontInventory.model.js";
 
 // Create new GRN (Supports Partial GRN - Can receive one or more items from PO)
 export const createGRN = asyncErrorHandler(async (req, res, next) => {
@@ -69,31 +72,55 @@ export const createGRN = asyncErrorHandler(async (req, res, next) => {
         new CustomError(400, `Line item at index ${index} must be an object`)
       );
     }
-    if (!item.productCode) {
+    if (!item.productCode && !item.inventoryId && !item.productId) {
       return next(
         new CustomError(
           400,
-          `Line item at index ${index} is missing 'productCode'. Each line item must have a productCode to match products from the purchase order.`
+          `Line item at index ${index} is missing 'productCode' or 'inventoryId'. Each line item must have an identifier to match products from the purchase order.`
         )
       );
     }
-    const productCodeUpper = item.productCode.toUpperCase();
-    if (userLineItemsMap.has(productCodeUpper)) {
+    const identifier = item.productCode || item.inventoryId || item.productId || item._id;
+    const productKeyUpper = (identifier || "").toString().toUpperCase();
+    if (userLineItemsMap.has(productKeyUpper)) {
       return next(
         new CustomError(
           400,
-          `Duplicate productCode '${item.productCode}' found in line items. Each product can only appear once per GRN.`
+          `Duplicate product identifier '${identifier}' found in line items. Each product can only appear once per GRN.`
         )
       );
     }
-    userLineItemsMap.set(productCodeUpper, item);
+    // Also attach the identifier to the item so we can use it later if productCode is missing
+    item._mappedKey = productKeyUpper;
+    userLineItemsMap.set(productKeyUpper, item);
   });
 
-  // Create a map of PO products by productCode for efficient lookup
+  // Create a map of PO products by productCode/inventoryId for efficient lookup and grouping
   const poProductsByCode = new Map();
   purchaseOrder.products.forEach((poProduct) => {
-    const code = poProduct.productCode.toUpperCase();
-    poProductsByCode.set(code, poProduct);
+    const code = (poProduct.productCode || poProduct.inventoryId || "").toString().toUpperCase();
+    if (!poProductsByCode.has(code)) {
+      poProductsByCode.set(code, {
+        productCode: poProduct.productCode,
+        productName: poProduct.productName,
+        inventoryId: poProduct.inventoryId,
+        buyingPrice: poProduct.buyingPrice,
+        purchaseQuantity: 0, // Aggregated total base quantity
+        receivedQuantity: 0, // Aggregated total received quantity
+        lineItems: []
+      });
+    }
+    const grouped = poProductsByCode.get(code);
+    const bQty = poProduct.baseQuantity || (poProduct.purchaseQuantity * (poProduct.factor || 1)) || 0;
+    const rQty = poProduct.receivedQuantity || 0;
+    grouped.purchaseQuantity += bQty;
+    grouped.receivedQuantity += rQty;
+    grouped.lineItems.push({
+      _id: poProduct._id,
+      baseQuantity: bQty,
+      receivedQuantity: rQty,
+      remainingQuantity: Math.max(0, bQty - rQty)
+    });
   });
 
   // Build GRN line items from user-provided line items (partial GRN support)
@@ -111,14 +138,20 @@ export const createGRN = asyncErrorHandler(async (req, res, next) => {
   const sharedDefaultBatchNumber = `BAT-${dateStr}-${randomAlphanumeric}`;
 
   // Process only the products that user wants to receive (partial GRN)
-  for (const [productCodeUpper, userItem] of userLineItemsMap) {
+  for (const [productKeyUpper, userItem] of userLineItemsMap) {
     // Find the corresponding PO product
-    const poProduct = poProductsByCode.get(productCodeUpper);
+    let poProduct = poProductsByCode.get(productKeyUpper);
+    
+    // If not found by primary key, try fallback to just inventoryId if userItem provided it
+    if (!poProduct && userItem.inventoryId) {
+       poProduct = poProductsByCode.get(userItem.inventoryId.toString().toUpperCase());
+    }
+    
     if (!poProduct) {
       return next(
         new CustomError(
           400,
-          `Product with productCode '${userItem.productCode}' not found in purchase order.`
+          `Product with identifier '${userItem.productCode || userItem.inventoryId}' not found in purchase order.`
         )
       );
     }
@@ -131,10 +164,15 @@ export const createGRN = asyncErrorHandler(async (req, res, next) => {
       !mongoose.Types.ObjectId.isValid(inventoryIdValue)
     ) {
       const inventoryItem = await Inventory.findOne({
-        productCode: poProduct.productCode.toUpperCase(),
-      });
+        productCode: (poProduct.productCode || "").toString(), // Exact match in DB, don't strictly need upperCase here unless DB is uppercase, but original did upperCase. Let's do case-insensitive search if needed, but original used upperCase.
+      }); // Wait, original had .toUpperCase() here, I'll keep it but safely.
+      
+      let finalInventoryItem = inventoryItem;
+      if (!finalInventoryItem && poProduct.productCode) {
+        finalInventoryItem = await Inventory.findOne({ productCode: poProduct.productCode.toUpperCase() });
+      }
 
-      if (!inventoryItem) {
+      if (!finalInventoryItem) {
         return next(
           new CustomError(
             404,
@@ -143,7 +181,7 @@ export const createGRN = asyncErrorHandler(async (req, res, next) => {
         );
       }
 
-      inventoryIdValue = inventoryItem._id;
+      inventoryIdValue = finalInventoryItem._id;
     }
 
     // Ensure inventoryId is a valid ObjectId
@@ -275,6 +313,8 @@ export const createGRN = asyncErrorHandler(async (req, res, next) => {
 
     const grnLineItem = {
       inventoryId: inventoryIdValue, // Auto-filled from PO or looked up by productCode
+      productCode: poProduct.productCode, // ensure we capture this for grouping
+      _mappedKey: userItem._mappedKey, // Add mapped key to track grouping
       receivedQuantity: receivedQuantity, // Auto-calculated: goodQuantity + badQuantity
       goodQuantity: userItem.goodQuantity, // User provides
       badQuantity: userItem.badQuantity, // User provides
@@ -311,40 +351,53 @@ export const createGRN = asyncErrorHandler(async (req, res, next) => {
   const newGRN = await GoodsRecievedNote.create(grnData);
 
   // Increment receivedQuantity in PO for each product
-  // purchaseQuantity remains unchanged (preserves original order quantity)
-  // receivedQuantity tracks total received from all GRNs
-  // If purchaseQuantity === receivedQuantity, update productStatus to "seperated"
+  // For grouped products, sequentially distribute the received quantity across the PO line items
   for (const grnLineItem of grnLineItems) {
-    // First, increment receivedQuantity
-    await Purchasing.updateOne(
-      {
-        _id: purchasingId,
-        "products.inventoryId": grnLineItem.inventoryId,
-      },
-      {
-        $inc: {
-          "products.$.receivedQuantity": grnLineItem.receivedQuantity,
-        },
+    let remainingToDistribute = grnLineItem.receivedQuantity;
+    // Look up the group by our mapped key, or gracefully fallback to productCode or inventoryId
+    const lookupKey = grnLineItem._mappedKey || (grnLineItem.productCode || grnLineItem.inventoryId || "").toString().toUpperCase();
+    const poGroup = poProductsByCode.get(lookupKey);
+    
+    if (poGroup && poGroup.lineItems) {
+      for (const poLine of poGroup.lineItems) {
+        if (remainingToDistribute <= 0) break;
+        
+        const lineRemaining = poLine.remainingQuantity;
+        if (lineRemaining > 0) {
+          const allocateQty = Math.min(remainingToDistribute, lineRemaining);
+          
+          await Purchasing.updateOne(
+            {
+              _id: purchasingId,
+              "products._id": poLine._id,
+            },
+            {
+              $inc: {
+                "products.$.receivedQuantity": allocateQty,
+              },
+            }
+          );
+          remainingToDistribute -= allocateQty;
+        }
       }
-    );
+    }
   }
 
   // After updating all receivedQuantities, fetch the updated PO to check status updates
   const updatedPO = await Purchasing.findById(purchasingId).lean();
 
   // Check ALL products in the PO to ensure their status is correct
-  // This handles cases where multiple GRNs might affect different products
   for (const product of updatedPO.products) {
-    const purchaseQty = product.purchaseQuantity || 0;
-    const receivedQty = product.receivedQuantity || 0;
+    const bQty = product.baseQuantity || (product.purchaseQuantity * (product.factor || 1)) || 0;
+    const rQty = product.receivedQuantity || 0;
     const currentStatus = product.productStatus;
 
-    // If purchaseQuantity equals receivedQuantity, status should be "seperated"
-    if (purchaseQty === receivedQty && currentStatus !== "seperated") {
+    // If baseQuantity equals receivedQuantity, status should be "seperated"
+    if (bQty === rQty && currentStatus !== "seperated") {
       await Purchasing.updateOne(
         {
           _id: purchasingId,
-          "products.inventoryId": product.inventoryId,
+          "products._id": product._id,
         },
         {
           $set: {
@@ -353,12 +406,12 @@ export const createGRN = asyncErrorHandler(async (req, res, next) => {
         }
       );
     }
-    // If purchaseQuantity does NOT equal receivedQuantity, status should be "pending"
-    else if (purchaseQty !== receivedQty && currentStatus !== "pending") {
+    // If baseQuantity does NOT equal receivedQuantity, status should be "pending"
+    else if (bQty !== rQty && currentStatus !== "pending") {
       await Purchasing.updateOne(
         {
           _id: purchasingId,
-          "products.inventoryId": product.inventoryId,
+          "products._id": product._id,
         },
         {
           $set: {
@@ -673,4 +726,102 @@ export const updateGRNLineItems = asyncErrorHandler(async (req, res, next) => {
     message: "GRN line items updated successfully",
     data: grn,
   });
+});
+
+export const transferGRN = asyncErrorHandler(async (req, res, next) => {
+  const { id } = req.params;
+  const { destination } = req.body;
+
+  if (!["warehouse", "storefront"].includes(destination)) {
+    return next(new CustomError(400, "Destination must be 'warehouse' or 'storefront'"));
+  }
+
+  const grn = await GoodsRecievedNote.findById(id);
+  if (!grn) {
+    return next(new CustomError(404, "GRN not found"));
+  }
+
+  if (!["verified", "completed"].includes(grn.status)) {
+    return next(new CustomError(400, "Only verified GRNs can be transferred"));
+  }
+
+  // Find a destination location
+  const location = await LocationProfile.findOne({ type: destination });
+  if (!location) {
+    return next(new CustomError(404, `No ${destination} location found`));
+  }
+
+  const session = await mongoose.startSession();
+  try {
+    await session.withTransaction(async () => {
+      // Re-fetch inside transaction
+      const txGrn = await GoodsRecievedNote.findById(id).session(session);
+      
+      if (txGrn.status === "transferred") {
+        throw new CustomError(400, "GRN has already been transferred");
+      }
+      
+      for (const item of txGrn.lineItems) {
+        // Use receivedQuantity as requested, or fallback if 0
+        const qtyToTransfer = item.receivedQuantity > 0 ? item.receivedQuantity : item.goodQuantity;
+        if (qtyToTransfer <= 0) continue;
+
+        if (destination === "warehouse") {
+          const stock = await WarehouseStock.findOne({
+            inventoryId: item.inventoryId,
+            warehouseId: location._id
+          }).session(session);
+
+          if (stock) {
+            stock.quantity += qtyToTransfer;
+            await stock.save({ session });
+          } else {
+            await WarehouseStock.create([{
+              inventoryId: item.inventoryId,
+              warehouseId: location._id,
+              quantity: qtyToTransfer,
+              batchNumber: item.batchNumber || "__LEGACY__",
+              expiryDate: item.expiryDate,
+              manufacturingDate: item.manufacturingDate
+            }], { session });
+          }
+        } else {
+          const stock = await StorefrontInventory.findOne({
+            inventoryId: item.inventoryId,
+            storefrontId: location._id
+          }).session(session);
+
+          if (stock) {
+            stock.quantity += qtyToTransfer;
+            await stock.save({ session });
+          } else {
+            await StorefrontInventory.create([{
+              inventoryId: item.inventoryId,
+              storefrontId: location._id,
+              quantity: qtyToTransfer,
+              batchNumber: item.batchNumber || "__LEGACY__",
+              expiryDate: item.expiryDate,
+              manufacturingDate: item.manufacturingDate
+            }], { session });
+          }
+        }
+        
+        item.transferredQuantity += qtyToTransfer;
+      }
+
+      txGrn.status = "transferred";
+      await txGrn.save({ session });
+    });
+    
+    // Fetch updated GRN to return
+    const updatedGrn = await GoodsRecievedNote.findById(id);
+
+    res.status(200).json({
+      success: true,
+      message: `GRN successfully transferred to ${destination}`,
+      data: updatedGrn
+    });
+  } finally {
+    await session.endSession();
+  }
 });

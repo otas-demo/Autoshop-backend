@@ -1,6 +1,7 @@
 import express from "express";
 import {
   createPurchase,
+  updatePurchase,
   getAllPurchases,
   getPurchaseById,
   updatePurchaseStatus,
@@ -41,6 +42,12 @@ router.get(
   protect,
   permissionGranted("owner", "admin"),
   getPurchaseById
+);
+router.put(
+  "/purchase/:id",
+  protect,
+  permissionGranted("owner", "admin"),
+  updatePurchase
 );
 router.patch(
   "/purchase/:id/status",

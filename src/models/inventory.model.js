@@ -94,6 +94,12 @@ const inventorySchema = new mongoose.Schema(
       trim: true,
       default: "piece",
     },
+    uomConversions: [{
+      unit: { type: String, required: true, trim: true },
+      factor: { type: Number, required: true, min: [0.001, 'Factor must be greater than 0'] },
+      isDefaultSellingUnit: { type: Boolean, default: false },
+      convertFrom: { type: String, default: null, trim: true }
+    }],
     reorderPoint: {
       type: Number,
       min: [0, "Reorder point cannot be negative"],
@@ -191,6 +197,47 @@ inventorySchema.virtual("profitAmount").get(function () {
 //   }
 //   next();
 // });
+
+inventorySchema.pre('save', function () {
+  if (this.isModified('uomConversions') || this.isModified('unitOfMeasure')) {
+    const baseUnit = this.unitOfMeasure ? this.unitOfMeasure.toLowerCase().trim() : '';
+    const conversions = this.uomConversions || [];
+    const unitNames = [];
+
+    for (const conv of conversions) {
+      const currentUnit = conv.unit.toLowerCase().trim();
+
+      if (currentUnit === baseUnit) {
+        throw new Error(`Conversion unit name '${conv.unit}' cannot be the same as the base unit.`);
+      }
+      if (unitNames.includes(currentUnit)) {
+        throw new Error(`Duplicate conversion unit name found: '${conv.unit}'.`);
+      }
+      unitNames.push(currentUnit);
+    }
+
+    for (const conv of conversions) {
+      let current = conv;
+      let visited = new Set(); 
+
+      while (current && current.convertFrom) {
+        const convertFromLower = current.convertFrom.toLowerCase().trim();
+        
+        if (convertFromLower === baseUnit) break;
+        
+        if (visited.has(convertFromLower)) {
+          throw new Error(`Circular conversion detected involving unit: '${current.unit}'.`);
+        }
+        visited.add(convertFromLower);
+        
+        current = conversions.find(c => c.unit.toLowerCase().trim() === convertFromLower);
+        if (!current) {
+          throw new Error(`'Convert From' unit '${conv.convertFrom}' not found in the conversions list.`);
+        }
+      }
+    }
+  }
+});
 
 const Inventory = mongoose.model("Inventory", inventorySchema);
 export default Inventory;

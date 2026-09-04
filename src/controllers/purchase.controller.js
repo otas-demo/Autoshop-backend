@@ -26,9 +26,17 @@ export const createPurchase = asyncErrorHandler(async (req, res, next) => {
   }
 
   // Fetch product details for each product in the purchase
+  const mappedProducts = products.map(p => ({
+    ...p,
+    unit: p.unit,
+    factor: p.factor,
+    baseQuantity: p.baseQuantity || (p.quantity || p.purchaseQuantity) * (p.factor || 1)
+  }));
+
   const productsWithDetails = await Promise.all(
-    products.map(async (item) => {
-      if (!item.inventoryId || !item.purchaseQuantity) {
+    mappedProducts.map(async (item) => {
+      const qty = item.purchaseQuantity || item.quantity;
+      if (!item.inventoryId || !qty) {
         throw new CustomError(
           400,
           `Product must have inventoryId and purchaseQuantity`
@@ -49,7 +57,10 @@ export const createPurchase = asyncErrorHandler(async (req, res, next) => {
         productName: inventoryItem.productName,
         productCode: inventoryItem.productCode,
         buyingPrice: inventoryItem.buyingPrice,
-        purchaseQuantity: item.purchaseQuantity,
+        purchaseQuantity: qty,
+        unit: item.unit || "piece",
+        factor: item.factor || 1,
+        baseQuantity: item.baseQuantity,
       };
     })
   );
@@ -132,6 +143,92 @@ export const createPurchase = asyncErrorHandler(async (req, res, next) => {
     success: true,
     message: "Purchase created successfully",
     data: purchase,
+  });
+});
+
+export const updatePurchase = asyncErrorHandler(async (req, res, next) => {
+  const { id } = req.params;
+  const {
+    supplierId,
+    products,
+    note,
+    totalAmount,
+    date
+  } = req.body;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return next(new CustomError(400, "Invalid purchase order ID format"));
+  }
+
+  const existingPurchase = await Purchasing.findById(id);
+  if (!existingPurchase) {
+    return next(new CustomError(404, "Purchase order not found"));
+  }
+  if (existingPurchase.isDeleted) {
+    return next(new CustomError(400, "Cannot update a soft-deleted purchase order"));
+  }
+
+  let productsWithDetails = existingPurchase.products;
+
+  if (products && products.length > 0) {
+    const mappedProducts = products.map(p => ({
+      ...p,
+      unit: p.unit,
+      factor: p.factor,
+      baseQuantity: p.baseQuantity || (p.quantity || p.purchaseQuantity) * (p.factor || 1)
+    }));
+
+    productsWithDetails = await Promise.all(
+      mappedProducts.map(async (item) => {
+        const qty = item.purchaseQuantity || item.quantity;
+        if (!item.inventoryId || !qty) {
+          throw new CustomError(
+            400,
+            `Product must have inventoryId and purchaseQuantity`
+          );
+        }
+
+        const inventoryItem = await Inventory.findById(item.inventoryId);
+
+        if (!inventoryItem) {
+          throw new CustomError(
+            404,
+            `Product with ID ${item.inventoryId} not found`
+          );
+        }
+
+        return {
+          inventoryId: inventoryItem._id,
+          productName: inventoryItem.productName,
+          productCode: inventoryItem.productCode,
+          buyingPrice: item.buyingPrice || inventoryItem.buyingPrice,
+          purchaseQuantity: qty,
+          unit: item.unit || "piece",
+          factor: item.factor || 1,
+          baseQuantity: item.baseQuantity,
+        };
+      })
+    );
+  }
+
+  if (supplierId) existingPurchase.supplierId = supplierId;
+  if (products) existingPurchase.products = productsWithDetails;
+  if (note !== undefined) existingPurchase.note = note;
+  if (totalAmount !== undefined) existingPurchase.totalAmount = totalAmount;
+  
+  if (date) {
+    const parsedDate = new Date(date);
+    if (!isNaN(parsedDate.getTime())) {
+      existingPurchase.createdAt = parsedDate;
+    }
+  }
+
+  const updatedPurchase = await existingPurchase.save();
+
+  res.status(200).json({
+    success: true,
+    message: "Purchase updated successfully",
+    data: updatedPurchase,
   });
 });
 
@@ -260,7 +357,7 @@ export const getAllPurchases = asyncErrorHandler(async (req, res, next) => {
         const remainingQty =
           product.remainingQuantity !== undefined
             ? product.remainingQuantity
-            : (product.purchaseQuantity || 0) - (product.receivedQuantity || 0);
+            : (product.baseQuantity || ((product.purchaseQuantity || 0) * (product.factor || 1))) - (product.receivedQuantity || 0);
         return total + Math.max(0, remainingQty); // Ensure non-negative
       },
       0
@@ -681,7 +778,7 @@ export const getPurchaseReport = asyncErrorHandler(async (req, res, next) => {
         _id: "$products.inventoryId",
         productName: { $first: "$products.productName" },
         productCode: { $first: "$products.productCode" },
-        totalQuantity: { $sum: "$products.purchaseQuantity" },
+        totalQuantity: { $sum: { $ifNull: ["$products.baseQuantity", { $multiply: ["$products.purchaseQuantity", { $ifNull: ["$products.factor", 1] }] }] } },
         totalCost: { $sum: { $multiply: ["$products.buyingPrice", "$products.purchaseQuantity"] } },
       },
     },
