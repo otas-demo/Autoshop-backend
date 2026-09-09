@@ -37,6 +37,7 @@ export const getSaleReportByStorefrontId = asyncErrorHandler(
     const filter = {
       isDeleted: false,
       orderStatus: "completed", // Only include completed orders
+      paymentMethod: { $not: /^foc/i }, // Exclude FOC orders (tracked separately in FOC tab)
     };
 
     // Add storefrontId filter only if provided
@@ -170,6 +171,7 @@ export const getPaymentMethodReportByStorefrontId = asyncErrorHandler(
       isDeleted: false,
       orderStatus: "completed", // Only include completed orders
       paymentType: "paid", // Only paid orders
+      paymentMethod: { $not: /^foc/i }, // Exclude FOC orders (tracked separately in FOC tab)
     };
 
     // Add storefrontId filter only if provided
@@ -699,6 +701,7 @@ export const getProductSalesReportByStorefrontId = asyncErrorHandler(
     const filter = {
       isDeleted: false,
       orderStatus: "completed", // Only include completed orders
+      paymentMethod: { $not: /^foc/i }, // Exclude FOC orders (tracked separately in FOC tab)
     };
 
     // Add storefrontId filter only if provided

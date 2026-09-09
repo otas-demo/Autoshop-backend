@@ -30,7 +30,11 @@ async function getStorefrontIfValid(storefrontId) {
 }
 
 function buildBaseFilter(storefrontId, startDate, endDate) {
-  const filter = { isDeleted: false, orderStatus: "completed" };
+  const filter = {
+    isDeleted: false,
+    orderStatus: "completed",
+    paymentMethod: { $not: /^foc/i },
+  };
   if (storefrontId) {
     if (!mongoose.Types.ObjectId.isValid(storefrontId)) {
       throw new Error("Invalid storefront ID format");

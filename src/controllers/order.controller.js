@@ -508,8 +508,8 @@ export const getAllOrders = asyncErrorHandler(async (req, res, next) => {
   // Add paymentMethod filter if provided
   if (paymentMethod !== undefined && paymentMethod !== "") {
     // Common payment methods: cash, card, bank_transfer, mobile_payment, etc.
-    // Since the model doesn't enforce enum, we'll accept any string but trim it
-    filter.paymentMethod = paymentMethod.trim();
+    // Use case-insensitive regex to match both 'foc' and 'FOC' etc.
+    filter.paymentMethod = new RegExp(`^${paymentMethod.trim()}$`, "i");
   }
 
   // Add date range filter using dateFilter utility

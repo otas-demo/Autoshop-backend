@@ -26,7 +26,9 @@ export const createDateFilter = (
   let startMoment = null;
   let endMoment = null;
 
-  // Parse startDate in UTC
+  const TIMEZONE = "Asia/Yangon";
+
+  // Parse startDate in Myanmar Timezone (Asia/Yangon, UTC+06:30)
   if (startDate) {
     // Try parsing with common date formats
     const dateFormats = [
@@ -39,15 +41,15 @@ export const createDateFilter = (
 
     startMoment = null;
     for (const format of dateFormats) {
-      startMoment = moment.utc(startDate, format);
+      startMoment = moment.tz(startDate, format, TIMEZONE);
       if (startMoment.isValid()) {
         break;
       }
     }
 
-    // If still not valid, try parsing without format (moment's default parsing in UTC)
+    // If still not valid, try parsing without format (moment's default parsing in Myanmar timezone)
     if (!startMoment || !startMoment.isValid()) {
-      startMoment = moment.utc(startDate);
+      startMoment = moment.tz(startDate, TIMEZONE);
     }
 
     if (!startMoment.isValid()) {
@@ -56,14 +58,14 @@ export const createDateFilter = (
         `Invalid startDate format: "${startDate}". Please use a valid date format (e.g., YYYY-MM-DD or YYYY-MM-DD HH:mm:ss).`
       );
     }
-    // For Date fields, set to start of day in UTC
+    // For Date fields, set to start of day in Myanmar Timezone
     // For string fields, we'll just extract the date part later
     if (!isStringField) {
       startMoment.startOf("day");
     }
   }
 
-  // Parse endDate in UTC
+  // Parse endDate in Myanmar Timezone (Asia/Yangon, UTC+06:30)
   if (endDate) {
     // Try parsing with common date formats
     const dateFormats = [
@@ -76,15 +78,15 @@ export const createDateFilter = (
 
     endMoment = null;
     for (const format of dateFormats) {
-      endMoment = moment.utc(endDate, format);
+      endMoment = moment.tz(endDate, format, TIMEZONE);
       if (endMoment.isValid()) {
         break;
       }
     }
 
-    // If still not valid, try parsing without format (moment's default parsing in UTC)
+    // If still not valid, try parsing without format (moment's default parsing in Myanmar timezone)
     if (!endMoment || !endMoment.isValid()) {
-      endMoment = moment.utc(endDate);
+      endMoment = moment.tz(endDate, TIMEZONE);
     }
 
     if (!endMoment.isValid()) {
@@ -93,7 +95,7 @@ export const createDateFilter = (
         `Invalid endDate format: "${endDate}". Please use a valid date format (e.g., YYYY-MM-DD or YYYY-MM-DD HH:mm:ss).`
       );
     }
-    // For Date fields, set to end of day in UTC
+    // For Date fields, set to end of day in Myanmar Timezone
     // For string fields, we'll just extract the date part later
     if (!isStringField) {
       endMoment.endOf("day");
