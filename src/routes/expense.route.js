@@ -3,6 +3,7 @@ import {
   createExpense,
   getExpenseById,
   getExpenses,
+  getExpenseCategories,
   updateExpense,
   softDeleteExpense,
   restoreExpense,
@@ -26,6 +27,12 @@ router.get(
   protect,
   permissionGranted("cashier", "admin", "owner"),
   getExpenses
+);
+router.get(
+  "/expense/categories",
+  protect,
+  permissionGranted("cashier", "admin", "owner"),
+  getExpenseCategories
 );
 router.get(
   "/expense/:id",

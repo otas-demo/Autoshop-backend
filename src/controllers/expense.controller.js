@@ -301,3 +301,17 @@ export const deleteExpense = asyncErrorHandler(async (req, res, next) => {
     data: expense,
   });
 });
+
+export const getExpenseCategories = asyncErrorHandler(
+  async (req, res, next) => {
+    const categories = await Expense.distinct("category", {
+      softDeleted: false,
+    });
+    res.status(200).json({
+      success: true,
+      message: "Expense categories fetched successfully.",
+      data: categories.filter(Boolean),
+    });
+  },
+);
+
