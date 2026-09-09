@@ -467,7 +467,15 @@ export const getAllOrders = asyncErrorHandler(async (req, res, next) => {
   };
 
   // Extract query parameters
-  const { paymentType, paymentMethod } = req.query;
+  const { paymentType, paymentMethod, creditPersonId } = req.query;
+
+  // Add creditPersonId filter if provided
+  if (creditPersonId !== undefined && creditPersonId !== "") {
+    if (!mongoose.Types.ObjectId.isValid(creditPersonId)) {
+      return next(new CustomError(400, "Invalid credit person ID format"));
+    }
+    filter.creditPersonId = new mongoose.Types.ObjectId(creditPersonId);
+  }
 
   // Add paymentType filter if provided
   if (paymentType !== undefined && paymentType !== "") {
@@ -509,7 +517,8 @@ export const getAllOrders = asyncErrorHandler(async (req, res, next) => {
     .populate("storefrontId", "locationName locationCode")
     .populate("ordersProducts.inventoryId", "productName productCode SKU")
     .populate("creditPersonId", "name phone address")
-    .populate("soldBy", "name role");
+    .populate("soldBy", "name role")
+    .sort({ createdAt: -1 });
 
   res.status(200).json({
     success: true,
