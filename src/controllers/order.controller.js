@@ -273,18 +273,19 @@ export const createOrder = asyncErrorHandler(async (req, res, next) => {
             throw new CustomError(400, "Final amount cannot be negative");
           }
 
-          // 4. Validate stock availability and deduct stock
+          // 4. Validate stock availability and deduct stock (multi-batch aware, FIFO)
           for (const product of validatedProducts) {
-            const stockRecord = await StorefrontInventory.findOne(
+            // Fetch ALL batch records for this product in this storefront (oldest first = FIFO)
+            const stockRecords = await StorefrontInventory.find(
               {
                 inventoryId: product.inventoryId,
                 storefrontId: storefrontId,
               },
               null,
-              { session },
+              { session, sort: { createdAt: 1 } },
             );
 
-            if (!stockRecord) {
+            if (!stockRecords || stockRecords.length === 0) {
               const inventoryItem = inventoryMap.get(
                 product.inventoryId.toString(),
               );
@@ -296,9 +297,13 @@ export const createOrder = asyncErrorHandler(async (req, res, next) => {
               );
             }
 
-            // Check stock availability
-            const availableQuantity = stockRecord.quantity || 0;
-            if (availableQuantity < product.quantity) {
+            // Sum total available quantity across all batches
+            const totalAvailable = stockRecords.reduce(
+              (sum, r) => sum + (r.quantity || 0),
+              0,
+            );
+
+            if (totalAvailable < product.quantity) {
               const inventoryItem = inventoryMap.get(
                 product.inventoryId.toString(),
               );
@@ -308,17 +313,24 @@ export const createOrder = asyncErrorHandler(async (req, res, next) => {
                   inventoryItem?.productCode || product.inventoryId
                 }' (${
                   inventoryItem?.productName || "Unknown"
-                }). Available: ${availableQuantity}, Requested: ${
+                }). Available: ${totalAvailable}, Requested: ${
                   product.quantity
                 }`,
               );
             }
 
-            // Deduct stock - modify document directly and save with session
-            // This follows the pattern in StorefrontInventory model's removeStock method
-            stockRecord.quantity -= product.quantity;
-            stockRecord.lastUpdated = new Date();
-            await stockRecord.save({ session });
+            // Deduct FIFO: consume oldest batches first, skip empty ones
+            let remaining = product.quantity;
+            for (const record of stockRecords) {
+              if (remaining <= 0) break;
+              const batchQty = record.quantity || 0;
+              if (batchQty <= 0) continue; // skip empty batches
+              const deduct = Math.min(batchQty, remaining);
+              record.quantity -= deduct;
+              record.lastUpdated = new Date();
+              await record.save({ session });
+              remaining -= deduct;
+            }
           }
 
           // 5. Create order with calculated values

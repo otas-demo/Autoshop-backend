@@ -145,6 +145,7 @@ export const updatePurchase = asyncErrorHandler(async (req, res, next) => {
     paymentType,
     paidAmount,
     dueDate,
+    paymentMethod,
   } = req.body;
 
   if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -263,6 +264,99 @@ export const updatePurchase = asyncErrorHandler(async (req, res, next) => {
   }
 
   await purchase.save();
+
+  // Synchronize PurchasePaymentRecord when purchase paidAmount or payment details are updated
+  try {
+    const existingRecords = await PurchasePaymentRecord.find({
+      purchaseId: purchase._id,
+      isDeleted: false,
+    }).sort({ createdAt: 1 });
+
+    const validPaymentMethod = [
+      "cash",
+      "kpay",
+      "wave",
+      "bank_transfer",
+      "other",
+    ].includes(paymentMethod)
+      ? paymentMethod
+      : "cash";
+
+    const recordedBy = req.user?._id || purchase.purchasedBy;
+
+    if (existingRecords.length <= 1) {
+      if (existingRecords.length === 1) {
+        if (purchase.paidAmount === 0) {
+          existingRecords[0].isDeleted = true;
+          existingRecords[0].deletedAt = new Date();
+          await existingRecords[0].save();
+        } else {
+          existingRecords[0].paidAmount = purchase.paidAmount;
+          if (paymentMethod) {
+            existingRecords[0].paymentMethod = validPaymentMethod;
+          }
+          existingRecords[0].supplierId = purchase.supplierId;
+          existingRecords[0].recordedBy = recordedBy;
+          existingRecords[0].paymentDate = new Date();
+          existingRecords[0].notes =
+            purchase.paymentType === "credit"
+              ? "Initial down payment upon purchase order (Edited)"
+              : "Full payment upon purchase order (Edited)";
+          await existingRecords[0].save();
+        }
+      } else if (purchase.paidAmount > 0) {
+        await PurchasePaymentRecord.create({
+          purchaseId: purchase._id,
+          supplierId: purchase.supplierId,
+          paidAmount: purchase.paidAmount,
+          paymentDate: new Date(),
+          paymentMethod: validPaymentMethod,
+          notes:
+            purchase.paymentType === "credit"
+              ? "Initial down payment upon purchase order (Edited)"
+              : "Full payment upon purchase order (Edited)",
+          recordedBy,
+        });
+      }
+    } else {
+      const existingPaidSum = existingRecords.reduce(
+        (sum, r) => sum + r.paidAmount,
+        0
+      );
+      const diff = purchase.paidAmount - existingPaidSum;
+
+      if (diff > 0) {
+        await PurchasePaymentRecord.create({
+          purchaseId: purchase._id,
+          supplierId: purchase.supplierId,
+          paidAmount: diff,
+          paymentDate: new Date(),
+          paymentMethod: validPaymentMethod,
+          notes: "Adjustment upon purchase order edit",
+          recordedBy,
+        });
+      } else if (diff < 0) {
+        let remainingToDeduct = Math.abs(diff);
+        for (let i = existingRecords.length - 1; i >= 0; i--) {
+          const rec = existingRecords[i];
+          if (rec.paidAmount <= remainingToDeduct) {
+            remainingToDeduct -= rec.paidAmount;
+            rec.isDeleted = true;
+            rec.deletedAt = new Date();
+            await rec.save();
+          } else {
+            rec.paidAmount -= remainingToDeduct;
+            rec.notes = `${rec.notes || "Payment"} (Adjusted upon edit)`;
+            await rec.save();
+            remainingToDeduct = 0;
+            break;
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.error("Failed to sync PurchasePaymentRecord on purchase update:", err);
+  }
 
   const populatedPurchase = await Purchasing.findById(purchase._id)
     .populate("purchasedBy", "name role")
