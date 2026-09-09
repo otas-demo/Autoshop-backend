@@ -135,6 +135,146 @@ export const createPurchase = asyncErrorHandler(async (req, res, next) => {
   });
 });
 
+export const updatePurchase = asyncErrorHandler(async (req, res, next) => {
+  const { id } = req.params;
+  const {
+    supplierId,
+    products,
+    note,
+    totalAmount,
+    paymentType,
+    paidAmount,
+    dueDate,
+  } = req.body;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return next(new CustomError(400, "Invalid purchase order ID format"));
+  }
+
+  const purchase = await Purchasing.findOne({ _id: id, isDeleted: false });
+  if (!purchase) {
+    return next(new CustomError(404, "Purchase order not found"));
+  }
+
+  if (purchase.status !== "pending") {
+    return next(
+      new CustomError(
+        400,
+        `Cannot edit a purchase order with status '${purchase.status}' (only 'pending' orders can be edited)`
+      )
+    );
+  }
+
+  if (supplierId) {
+    purchase.supplierId = supplierId;
+  }
+
+  if (products && products.length > 0) {
+    const productsWithDetails = await Promise.all(
+      products.map(async (item) => {
+        if (!item.inventoryId || !item.purchaseQuantity) {
+          throw new CustomError(
+            400,
+            `Product must have inventoryId and purchaseQuantity`
+          );
+        }
+
+        const inventoryItem = await Inventory.findById(item.inventoryId);
+        if (!inventoryItem) {
+          throw new CustomError(
+            404,
+            `Product with ID ${item.inventoryId} not found`
+          );
+        }
+
+        const existingProduct = purchase.products.find(
+          (p) => p.inventoryId.toString() === item.inventoryId.toString()
+        );
+        const receivedQuantity = existingProduct
+          ? existingProduct.receivedQuantity || 0
+          : 0;
+
+        if (item.purchaseQuantity < receivedQuantity) {
+          throw new CustomError(
+            400,
+            `Purchase quantity for ${inventoryItem.productName} cannot be less than already received quantity (${receivedQuantity})`
+          );
+        }
+
+        return {
+          inventoryId: inventoryItem._id,
+          productName: inventoryItem.productName,
+          productCode: inventoryItem.productCode,
+          buyingPrice: inventoryItem.buyingPrice,
+          purchaseQuantity: item.purchaseQuantity,
+          receivedQuantity,
+        };
+      })
+    );
+
+    purchase.products = productsWithDetails;
+  }
+
+  if (note !== undefined) {
+    purchase.note = note || "No note available";
+  }
+
+  if (totalAmount !== undefined) {
+    purchase.totalAmount = totalAmount;
+  } else if (products && products.length > 0) {
+    purchase.totalAmount = purchase.products.reduce(
+      (sum, p) => sum + p.buyingPrice * p.purchaseQuantity,
+      0
+    );
+  }
+
+  if (paymentType !== undefined) {
+    purchase.paymentType = paymentType;
+  }
+
+  if (purchase.paymentType === "paid") {
+    purchase.paidAmount = purchase.totalAmount;
+    purchase.paymentStatus = "paid";
+    purchase.dueDate = null;
+  } else {
+    // credit
+    if (paidAmount !== undefined) {
+      purchase.paidAmount = Math.max(0, Number(paidAmount) || 0);
+    }
+    if (purchase.paidAmount >= purchase.totalAmount) {
+      purchase.paymentStatus = "paid";
+    } else if (purchase.paidAmount > 0) {
+      purchase.paymentStatus = "partially_paid";
+    } else {
+      purchase.paymentStatus = "unpaid";
+    }
+
+    if (dueDate !== undefined) {
+      if (dueDate) {
+        const parsedDate = new Date(dueDate);
+        if (isNaN(parsedDate.getTime())) {
+          return next(new CustomError(400, "Invalid due date format"));
+        }
+        purchase.dueDate = parsedDate;
+      } else {
+        purchase.dueDate = null;
+      }
+    }
+  }
+
+  await purchase.save();
+
+  const populatedPurchase = await Purchasing.findById(purchase._id)
+    .populate("purchasedBy", "name role")
+    .populate("supplierId", "supplierName supplierCode contactNumber");
+
+  res.status(200).json({
+    success: true,
+    message: "Purchase order updated successfully",
+    data: populatedPurchase,
+  });
+});
+
 export const getAllPurchases = asyncErrorHandler(async (req, res, next) => {
   const {
     page = 1,
@@ -169,6 +309,8 @@ export const getAllPurchases = asyncErrorHandler(async (req, res, next) => {
     if (paymentStatus === "overdue") {
       query.paymentStatus = { $ne: "paid" };
       query.dueDate = { $lt: new Date() };
+    } else if (paymentStatus === "unpaid") {
+      query.paymentStatus = { $in: ["unpaid", "partially_paid"] };
     } else {
       query.paymentStatus = paymentStatus;
     }
