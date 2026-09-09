@@ -414,10 +414,11 @@ export const getCreditRecordsByCreditPersonId = asyncErrorHandler(
       orderQuery.paymentType = "credit"; // Default to credit orders
     }
 
-    // Find all orders for this credit person - for summary information
-    const orders = await Order.find(orderQuery).select(
-      "_id orderNumber finalAmount paidAmount"
-    );
+    // Find all orders for this credit person - for summary and list table information
+    const orders = await Order.find(orderQuery)
+      .populate("storefrontId", "storefrontName storefrontCode")
+      .populate("soldBy", "name role")
+      .sort({ createdAt: -1 });
 
     if (orders.length === 0) {
       return res.status(200).json({
