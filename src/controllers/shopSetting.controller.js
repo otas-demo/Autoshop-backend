@@ -109,12 +109,17 @@ export const createOrUpdateShopSetting = asyncErrorHandler(
   }
 );
 
-// Upload shop logo
+// Upload shop logo (supports slot 1, 2, 3)
 export const uploadShopLogo = asyncErrorHandler(
   async (req, res, next) => {
     // Check if file was uploaded
     if (!req.file) {
       return next(new CustomError(400, "No file uploaded"));
+    }
+
+    const slot = parseInt(req.body.slot || req.query.slot || "1", 10);
+    if (![1, 2, 3].includes(slot)) {
+      return next(new CustomError(400, "Invalid slot number. Must be 1, 2, or 3."));
     }
 
     // Get admin ID from authenticated user
@@ -136,8 +141,21 @@ export const uploadShopLogo = asyncErrorHandler(
     }
 
     try {
-      // Delete old logo if exists
-      if (currentSettings.logoKey) {
+      // Normalize logos array from existing settings
+      let logos = Array.isArray(currentSettings.logos) ? [...currentSettings.logos] : [];
+      if (logos.length === 0 && currentSettings.logo && currentSettings.logoKey) {
+        logos.push({
+          url: currentSettings.logo,
+          key: currentSettings.logoKey,
+          slot: 1,
+        });
+      }
+
+      // Check if this slot already has a logo, if so delete from R2
+      const existingSlotLogo = logos.find((l) => l.slot === slot);
+      if (existingSlotLogo && existingSlotLogo.key) {
+        await deleteFromR2(existingSlotLogo.key);
+      } else if (slot === 1 && currentSettings.logoKey) {
         await deleteFromR2(currentSettings.logoKey);
       }
 
@@ -145,23 +163,41 @@ export const uploadShopLogo = asyncErrorHandler(
       const logoKey = generateR2Key(req.file.originalname);
       const logoUrl = await uploadToR2(req.file, logoKey);
 
-      // Update shop settings with new logo
+      // Filter out existing slot and append new logo
+      logos = logos.filter((l) => l.slot !== slot);
+      logos.push({
+        url: logoUrl,
+        key: logoKey,
+        slot,
+      });
+      logos.sort((a, b) => a.slot - b.slot);
+
+      // Update shop settings
+      const updateData = {
+        logos,
+        updatedBy: adminId,
+      };
+
+      // Maintain legacy logo/logoKey for slot 1 or fallback
+      if (slot === 1 || !currentSettings.logo) {
+        updateData.logo = logoUrl;
+        updateData.logoKey = logoKey;
+      }
+
       const updatedSettings = await ShopSetting.findByIdAndUpdate(
         currentSettings._id,
-        {
-          logo: logoUrl,
-          logoKey: logoKey,
-          updatedBy: adminId,
-        },
+        updateData,
         { new: true, runValidators: true }
       ).populate("updatedBy", "name role");
 
       res.status(200).json({
         success: true,
-        message: "Shop logo uploaded successfully",
+        message: `Shop logo for slot ${slot} uploaded successfully`,
         data: {
+          slot,
           logo: logoUrl,
           logoKey: logoKey,
+          logos: updatedSettings.logos,
         },
         shopSettings: updatedSettings,
       });
@@ -174,7 +210,7 @@ export const uploadShopLogo = asyncErrorHandler(
 // Get current shop settings
 export const getCurrentShopSettings = asyncErrorHandler(
   async (req, res, next) => {
-    const settings = await ShopSetting.getCurrentSettings();
+    let settings = await ShopSetting.getCurrentSettings();
 
     if (!settings) {
       return next(
@@ -185,6 +221,17 @@ export const getCurrentShopSettings = asyncErrorHandler(
       );
     }
 
+    // Auto-populate logos array if empty but legacy logo exists
+    if ((!settings.logos || settings.logos.length === 0) && settings.logo && settings.logoKey) {
+      settings = await ShopSetting.findByIdAndUpdate(
+        settings._id,
+        {
+          logos: [{ url: settings.logo, key: settings.logoKey, slot: 1 }],
+        },
+        { new: true }
+      ).populate("updatedBy", "name role");
+    }
+
     res.status(200).json({
       success: true,
       message: "Shop settings retrieved successfully",
@@ -193,9 +240,16 @@ export const getCurrentShopSettings = asyncErrorHandler(
   }
 );
 
-// Delete shop logo
+// Delete shop logo (supports slot 1, 2, 3)
 export const deleteShopLogo = asyncErrorHandler(
   async (req, res, next) => {
+    const slotParam = req.params.slot || req.query.slot || req.body?.slot;
+    const slot = slotParam ? parseInt(slotParam, 10) : 1;
+
+    if (![1, 2, 3].includes(slot)) {
+      return next(new CustomError(400, "Invalid slot number. Must be 1, 2, or 3."));
+    }
+
     // Get admin ID from authenticated user
     const adminId = req.user._id;
     if (!mongoose.Types.ObjectId.isValid(adminId)) {
@@ -214,28 +268,51 @@ export const deleteShopLogo = asyncErrorHandler(
       );
     }
 
-    if (!currentSettings.logoKey) {
-      return next(new CustomError(400, "No logo to delete"));
+    // Normalize logos array
+    let logos = Array.isArray(currentSettings.logos) ? [...currentSettings.logos] : [];
+    if (logos.length === 0 && currentSettings.logo && currentSettings.logoKey) {
+      logos.push({
+        url: currentSettings.logo,
+        key: currentSettings.logoKey,
+        slot: 1,
+      });
+    }
+
+    const targetLogo = logos.find((l) => l.slot === slot);
+    const keyToDelete = targetLogo?.key || (slot === 1 ? currentSettings.logoKey : null);
+
+    if (!keyToDelete) {
+      return next(new CustomError(400, `No logo found in slot ${slot} to delete`));
     }
 
     try {
       // Delete logo from R2
-      await deleteFromR2(currentSettings.logoKey);
+      await deleteFromR2(keyToDelete);
 
-      // Update shop settings to remove logo
+      // Remove from logos array
+      logos = logos.filter((l) => l.slot !== slot);
+
+      const updateData = {
+        logos,
+        updatedBy: adminId,
+      };
+
+      if (slot === 1) {
+        // Find next available logo to set as legacy default, or null
+        const nextLogo = logos[0] || null;
+        updateData.logo = nextLogo ? nextLogo.url : null;
+        updateData.logoKey = nextLogo ? nextLogo.key : null;
+      }
+
       const updatedSettings = await ShopSetting.findByIdAndUpdate(
         currentSettings._id,
-        {
-          logo: null,
-          logoKey: null,
-          updatedBy: adminId,
-        },
+        updateData,
         { new: true, runValidators: true }
       ).populate("updatedBy", "name role");
 
       res.status(200).json({
         success: true,
-        message: "Shop logo deleted successfully",
+        message: `Shop logo for slot ${slot} deleted successfully`,
         data: updatedSettings,
       });
     } catch (error) {

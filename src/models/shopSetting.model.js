@@ -21,12 +21,19 @@ const shopSettingSchema = new mongoose.Schema(
     },
     logo: {
       type: String,
-      default: null, // URL to Cloudflare R2 hosted image
+      default: null, // URL to Cloudflare R2 hosted image (Slot 1 default)
     },
     logoKey: {
       type: String,
       default: null, // R2 object key for deletion/replacement
     },
+    logos: [
+      {
+        url: { type: String, required: true },
+        key: { type: String, required: true },
+        slot: { type: Number, required: true, enum: [1, 2, 3] },
+      },
+    ],
     email: {
       type: String,
       trim: true,

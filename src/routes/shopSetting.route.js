@@ -36,9 +36,9 @@ router.get(
   getCurrentShopSettings
 );
 
-// Delete shop logo
+// Delete shop logo (optional slot param)
 router.delete(
-  "/shop-settings/logo",
+  ["/shop-settings/logo", "/shop-settings/logo/:slot"],
   protect,
   permissionGranted("owner", "admin"),
   deleteShopLogo
