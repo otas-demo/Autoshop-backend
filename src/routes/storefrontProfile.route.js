@@ -21,7 +21,7 @@ router.post(
 router.get(
   "/storefront-profile",
   protect,
-  permissionGranted("owner", "admin", "cashier"),
+  permissionGranted("owner", "admin", "cashier", "warehouse"),
   getAllStorefrontProfiles
 );
 
@@ -29,7 +29,7 @@ router.get(
 router.get(
   "/storefront-profile/:id",
   protect,
-  permissionGranted("owner", "admin", "cashier"),
+  permissionGranted("owner", "admin", "cashier", "warehouse"),
   getStorefrontProfileById
 );
 

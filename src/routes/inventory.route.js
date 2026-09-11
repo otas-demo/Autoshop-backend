@@ -49,7 +49,7 @@ router.post(
 router.get(
   "/inventory/categories",
   protect,
-  permissionGranted("owner", "admin", "cashier"),
+  permissionGranted("owner", "admin", "cashier", "warehouse"),
   getAllCategories,
 );
 
@@ -65,7 +65,7 @@ router.post(
 router.get(
   "/inventory",
   protect,
-  permissionGranted("owner", "admin", "cashier"),
+  permissionGranted("owner", "admin", "cashier", "warehouse"),
   getAllInventory,
 );
 
@@ -73,7 +73,7 @@ router.get(
 router.get(
   "/inventory/:id",
   protect,
-  permissionGranted("owner", "admin", "cashier"),
+  permissionGranted("owner", "admin", "cashier", "warehouse"),
   getInventoryById,
 );
 
@@ -89,7 +89,7 @@ router.patch(
 router.patch(
   "/inventory/batch/expiry",
   protect,
-  permissionGranted("owner", "admin", "cashier"),
+  permissionGranted("owner", "admin", "cashier", "warehouse"),
   updateBatchExpiryDate,
 );
 
