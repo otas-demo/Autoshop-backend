@@ -40,7 +40,7 @@ const upload = multer({
 router.post(
   "/inventory/import-excel",
   protect,
-  permissionGranted("owner", "admin", "cashier"),
+  permissionGranted("owner", "admin", "cashier", "warehouse"),
   upload.single("file"),
   importInventoryFromExcel,
 );
@@ -57,7 +57,7 @@ router.get(
 router.post(
   "/inventory",
   protect,
-  permissionGranted("owner", "admin", "cashier"),
+  permissionGranted("owner", "admin", "cashier", "warehouse"),
   createInventory,
 );
 
@@ -81,7 +81,7 @@ router.get(
 router.patch(
   "/inventory/:id",
   protect,
-  permissionGranted("owner", "admin", "cashier"),
+  permissionGranted("owner", "admin", "cashier", "warehouse"),
   updateInventory,
 );
 

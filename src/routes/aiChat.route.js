@@ -9,7 +9,7 @@ const router = express.Router();
 router.post(
   "/sale-report/ai-chat",
   protect,
-  permissionGranted("owner", "admin", "cashier"),
+  permissionGranted("owner", "admin", "cashier", "warehouse"),
   aiChatRateLimiter,
   askSaleReportAI
 );
@@ -17,7 +17,7 @@ router.post(
 router.get(
   "/sale-report/ai-chat/history",
   protect,
-  permissionGranted("owner", "admin", "cashier"),
+  permissionGranted("owner", "admin", "cashier", "warehouse"),
   getAiChatHistory
 );
 

@@ -17,7 +17,7 @@ const router = express.Router();
 router.get(
   "/sale-report",
   protect,
-  permissionGranted("owner", "admin", "cashier"),
+  permissionGranted("owner", "admin", "cashier", "warehouse"),
   getSaleReportByStorefrontId
 );
 
@@ -26,7 +26,7 @@ router.get(
 router.get(
   "/sale-report/paid-orders",
   protect,
-  permissionGranted("owner", "admin", "cashier"),
+  permissionGranted("owner", "admin", "cashier", "warehouse"),
   getPaymentMethodReportByStorefrontId
 );
 
@@ -35,7 +35,7 @@ router.get(
 router.get(
   "/sale-report/credit-orders",
   protect,
-  permissionGranted("owner", "admin", "cashier"),
+  permissionGranted("owner", "admin", "cashier", "warehouse"),
   getCreditSaleReportByStorefrontId
 );
 
@@ -44,7 +44,7 @@ router.get(
 router.get(
   "/sale-report/products",
   protect,
-  permissionGranted("owner", "admin", "cashier"),
+  permissionGranted("owner", "admin", "cashier", "warehouse"),
   getProductSalesReportByStorefrontId
 );
 
@@ -52,7 +52,7 @@ router.get(
 router.get(
   "/sale-report/credit-persona-products",
   protect,
-  permissionGranted("owner", "admin", "cashier"),
+  permissionGranted("owner", "admin", "cashier", "warehouse"),
   getCreditPersonaProductReport
 );
 
@@ -62,7 +62,7 @@ router.get(
 router.get(
   "/sale-report/products-by-credit-person",
   protect,
-  permissionGranted("owner", "admin", "cashier"),
+  permissionGranted("owner", "admin", "cashier", "warehouse"),
   getSaleProductsAnalyticsByCreditPerson
 );
 

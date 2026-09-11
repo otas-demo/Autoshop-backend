@@ -17,7 +17,7 @@ const router = express.Router();
 router.post(
   "/shop-settings",
   protect,
-  permissionGranted("owner", "admin"),
+  permissionGranted("owner", "admin", "warehouse"),
   createOrUpdateShopSetting
 );
 
@@ -25,7 +25,7 @@ router.post(
 router.post(
   "/shop-settings/logo",
   protect,
-  permissionGranted("owner", "admin"),
+  permissionGranted("owner", "admin", "warehouse"),
   upload.single("logo"),
   uploadShopLogo
 );
@@ -40,7 +40,7 @@ router.get(
 router.delete(
   ["/shop-settings/logo", "/shop-settings/logo/:slot"],
   protect,
-  permissionGranted("owner", "admin"),
+  permissionGranted("owner", "admin", "warehouse"),
   deleteShopLogo
 );
 
@@ -48,7 +48,7 @@ router.delete(
 router.get(
   "/shop-settings/history",
   protect,
-  permissionGranted("owner", "admin"),
+  permissionGranted("owner", "admin", "warehouse"),
   getAllShopSettings
 );
 
@@ -56,7 +56,7 @@ router.get(
 router.put(
   "/shop-settings/cron-time",
   protect,
-  permissionGranted("owner", "admin"),
+  permissionGranted("owner", "admin", "warehouse"),
   updateCronTime
 );
 

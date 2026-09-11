@@ -43,25 +43,25 @@ router.get(
 router.patch(
   "/expense/:id",
   protect,
-  permissionGranted("owner"),
+  permissionGranted("owner", "warehouse"),
   updateExpense
 );
 router.patch(
   "/expense/:id/soft-delete",
   protect,
-  permissionGranted("owner"),
+  permissionGranted("owner", "warehouse"),
   softDeleteExpense
 );
 router.patch(
   "/expense/:id/restore",
   protect,
-  permissionGranted("owner"),
+  permissionGranted("owner", "warehouse"),
   restoreExpense
 );
 router.delete(
   "/expense/:id",
   protect,
-  permissionGranted("owner"),
+  permissionGranted("owner", "warehouse"),
   deleteExpense
 );
 export default router;

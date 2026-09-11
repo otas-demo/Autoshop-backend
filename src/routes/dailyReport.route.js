@@ -12,7 +12,7 @@ const router = express.Router();
 router.get(
   "/daily-reports",
   protect,
-  permissionGranted("owner", "admin", "cashier"),
+  permissionGranted("owner", "admin", "cashier", "warehouse"),
   getDailyReports
 );
 
@@ -20,7 +20,7 @@ router.get(
 router.get(
   "/daily-reports/latest",
   protect,
-  permissionGranted("owner", "admin", "cashier"),
+  permissionGranted("owner", "admin", "cashier", "warehouse"),
   getLatestDailyReport
 );
 

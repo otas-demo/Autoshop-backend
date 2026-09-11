@@ -14,7 +14,7 @@ const router = express.Router();
 router.post(
   "/storefront-inventory",
   protect,
-  permissionGranted("owner", "admin"),
+  permissionGranted("owner", "admin", "warehouse"),
   createStorefrontInventory
 );
 
@@ -22,7 +22,7 @@ router.post(
 router.get(
   "/storefront-inventory",
   protect,
-  permissionGranted("owner", "admin", "cashier"),
+  permissionGranted("owner", "admin", "cashier", "warehouse"),
   getAllStorefrontInventory
 );
 
@@ -30,7 +30,7 @@ router.get(
 router.get(
   "/storefront-inventory/:storefrontId/expiring-stock",
   protect,
-  permissionGranted("owner", "admin", "cashier"),
+  permissionGranted("owner", "admin", "cashier", "warehouse"),
   getExpiringStorefrontInventory
 );
 
@@ -38,7 +38,7 @@ router.get(
 router.get(
   "/storefront-inventory/:id",
   protect,
-  permissionGranted("owner", "admin", "cashier"),
+  permissionGranted("owner", "admin", "cashier", "warehouse"),
   getStorefrontInventoryById
 );
 
@@ -46,7 +46,7 @@ router.get(
 router.patch(
   "/storefront-inventory/:id/quantity",
   protect,
-  permissionGranted("owner"),
+  permissionGranted("owner", "warehouse"),
   updateStorefrontInventoryQuantity
 );
 
