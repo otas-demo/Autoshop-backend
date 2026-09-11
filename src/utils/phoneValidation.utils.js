@@ -82,7 +82,7 @@ export const validatePhoneNumberOrThrow = (
   const validation = validatePhoneNumber(phoneNumber, defaultRegion);
 
   if (!validation.isValid) {
-    throw new CustomError(400, validation.error || "Invalid phone number");
+    throw new CustomError(400, validation.error || "Invalid phone number", "INVALID_PHONE");
   }
 
   return validation.formattedNumber;

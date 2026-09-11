@@ -46,7 +46,7 @@ export const createWarehouseProfile = asyncErrorHandler(
     // Validate phone number
     const phoneValidation = validatePhoneNumber(warehousePhone, "MM");
     if (!phoneValidation.isValid) {
-      return next(new CustomError(400, phoneValidation.error));
+      return next(new CustomError(400, phoneValidation.error, "INVALID_PHONE"));
     }
 
     // Prepare warehouse data
@@ -244,7 +244,7 @@ export const updateWarehouseProfile = asyncErrorHandler(
     if (warehousePhone !== undefined) {
       const phoneValidation = validatePhoneNumber(warehousePhone, "MM");
       if (!phoneValidation.isValid) {
-        return next(new CustomError(400, phoneValidation.error));
+        return next(new CustomError(400, phoneValidation.error, "INVALID_PHONE"));
       }
       updateFields.locationPhone = phoneValidation.formattedNumber;
     }

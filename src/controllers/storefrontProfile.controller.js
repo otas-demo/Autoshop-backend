@@ -46,7 +46,7 @@ export const createStorefrontProfile = asyncErrorHandler(
     // Validate phone number
     const phoneValidation = validatePhoneNumber(storefrontPhone, "MM");
     if (!phoneValidation.isValid) {
-      return next(new CustomError(400, phoneValidation.error));
+      return next(new CustomError(400, phoneValidation.error, "INVALID_PHONE"));
     }
 
     // Prepare storefront data
@@ -244,7 +244,7 @@ export const updateStorefrontProfile = asyncErrorHandler(
     if (storefrontPhone !== undefined) {
       const phoneValidation = validatePhoneNumber(storefrontPhone, "MM");
       if (!phoneValidation.isValid) {
-        return next(new CustomError(400, phoneValidation.error));
+        return next(new CustomError(400, phoneValidation.error, "INVALID_PHONE"));
       }
       updateFields.locationPhone = phoneValidation.formattedNumber;
     }

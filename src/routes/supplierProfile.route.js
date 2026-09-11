@@ -21,13 +21,13 @@ router.post(
 router.get(
   "/supplier-profile",
   protect,
-  permissionGranted("owner", "admin"),
+  permissionGranted("owner", "admin", "cashier"),
   getAllSupplierProfiles
 );
 router.get(
   "/supplier-profile/:id",
   protect,
-  permissionGranted("owner", "admin"),
+  permissionGranted("owner", "admin", "cashier"),
   getSupplierProfileById
 );
 router.patch(

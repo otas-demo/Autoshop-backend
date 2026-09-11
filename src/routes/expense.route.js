@@ -19,25 +19,25 @@ const router = express.Router();
 router.post(
   "/expense",
   protect,
-  permissionGranted("cashier", "admin", "owner"),
+  permissionGranted("cashier", "admin", "owner", "warehouse"),
   createExpense
 );
 router.get(
   "/expense",
   protect,
-  permissionGranted("cashier", "admin", "owner"),
+  permissionGranted("cashier", "admin", "owner", "warehouse"),
   getExpenses
 );
 router.get(
   "/expense/categories",
   protect,
-  permissionGranted("cashier", "admin", "owner"),
+  permissionGranted("cashier", "admin", "owner", "warehouse"),
   getExpenseCategories
 );
 router.get(
   "/expense/:id",
   protect,
-  permissionGranted("cashier", "admin", "owner"),
+  permissionGranted("cashier", "admin", "owner", "warehouse"),
   getExpenseById
 );
 router.patch(

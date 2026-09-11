@@ -11,13 +11,13 @@ const router = Router();
 router.get(
   "/stock-audit-logs",
   protect,
-  permissionGranted("owner", "admin", "cashier"),
+  permissionGranted("owner", "admin", "cashier", "warehouse"),
   getAllStockAuditLogs
 );
 router.get(
   "/stock-audit-logs/:id",
   protect,
-  permissionGranted("owner", "admin", "cashier"),
+  permissionGranted("owner", "admin", "cashier", "warehouse"),
   getStockAuditLogById
 );
 
