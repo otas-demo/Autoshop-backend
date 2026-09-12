@@ -275,11 +275,12 @@ export const createOrder = asyncErrorHandler(async (req, res, next) => {
 
           // 4. Validate stock availability and deduct stock (multi-batch aware, FIFO)
           for (const product of validatedProducts) {
-            // Fetch ALL batch records for this product in this storefront (oldest first = FIFO)
+            // Fetch active batch records with available quantity for this product in this storefront (oldest first = FIFO)
             const stockRecords = await StorefrontInventory.find(
               {
                 inventoryId: product.inventoryId,
                 storefrontId: storefrontId,
+                quantity: { $gt: 0 },
               },
               null,
               { session, sort: { createdAt: 1 } },
@@ -290,10 +291,12 @@ export const createOrder = asyncErrorHandler(async (req, res, next) => {
                 product.inventoryId.toString(),
               );
               throw new CustomError(
-                404,
-                `Stock record not found for product '${
+                400,
+                `Insufficient stock for product '${
                   inventoryItem?.productCode || product.inventoryId
-                }' in storefront`,
+                }' (${
+                  inventoryItem?.productName || "Unknown"
+                }). Available: 0, Requested: ${product.quantity}`,
               );
             }
 

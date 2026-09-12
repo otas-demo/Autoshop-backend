@@ -61,6 +61,7 @@ storefrontInventorySchema.index({ inventoryId: 1 });
 storefrontInventorySchema.index({ storefrontId: 1, isLowStock: 1 }); // For low stock queries per storefront
 storefrontInventorySchema.index({ quantity: 1 }); // For sorting by quantity
 storefrontInventorySchema.index({ expiryDate: 1 }); // For expiry date queries
+storefrontInventorySchema.index({ storefrontId: 1, inventoryId: 1, quantity: 1, createdAt: 1 }); // For fast FIFO queries skipping depleted batches
 
 // Virtual for available quantity (same as quantity since we don't track reservations here)
 storefrontInventorySchema.virtual("availableQuantity").get(function () {
