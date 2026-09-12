@@ -35,6 +35,7 @@ export const createOrUpdateShopSetting = asyncErrorHandler(
       taxRate,
       businessHours,
       socialMedia,
+      brandingProfiles,
       isActive = true,
     } = req.body;
 
@@ -62,21 +63,27 @@ export const createOrUpdateShopSetting = asyncErrorHandler(
 
     if (existingSettings) {
       // Update existing settings
+      const updateData = {
+        shopName,
+        address,
+        phoneNumber,
+        email,
+        taxId,
+        currency,
+        taxRate,
+        businessHours,
+        socialMedia,
+        isActive,
+        updatedBy: adminId,
+      };
+
+      if (Array.isArray(brandingProfiles)) {
+        updateData.brandingProfiles = brandingProfiles;
+      }
+
       shopSetting = await ShopSetting.findByIdAndUpdate(
         existingSettings._id,
-        {
-          shopName,
-          address,
-          phoneNumber,
-          email,
-          taxId,
-          currency,
-          taxRate,
-          businessHours,
-          socialMedia,
-          isActive,
-          updatedBy: adminId,
-        },
+        updateData,
         { new: true, runValidators: true }
       ).populate("updatedBy", "name role");
     } else {
@@ -91,6 +98,7 @@ export const createOrUpdateShopSetting = asyncErrorHandler(
         taxRate,
         businessHours,
         socialMedia,
+        brandingProfiles: Array.isArray(brandingProfiles) ? brandingProfiles : [],
         isActive,
         updatedBy: adminId,
       });

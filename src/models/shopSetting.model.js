@@ -34,6 +34,14 @@ const shopSettingSchema = new mongoose.Schema(
         slot: { type: Number, required: true, enum: [1, 2, 3] },
       },
     ],
+    brandingProfiles: [
+      {
+        slot: { type: Number, required: true, enum: [1, 2, 3] },
+        name: { type: String, default: "", trim: true },
+        phoneNumber: { type: String, default: "", trim: true },
+        address: { type: String, default: "", trim: true },
+      },
+    ],
     email: {
       type: String,
       trim: true,
