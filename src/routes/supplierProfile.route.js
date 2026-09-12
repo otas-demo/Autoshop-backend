@@ -15,7 +15,7 @@ const router = express.Router();
 router.post(
   "/supplier-profile",
   protect,
-  permissionGranted("owner", "admin", "warehouse"),
+  permissionGranted("owner", "admin", "cashier", "warehouse"),
   createSupplierProfile
 );
 router.get(
@@ -33,7 +33,7 @@ router.get(
 router.patch(
   "/supplier-profile/:id",
   protect,
-  permissionGranted("owner", "warehouse"),
+  permissionGranted("owner", "admin", "cashier", "warehouse"),
   updateSupplierProfile
 );
 router.patch(

@@ -31,7 +31,7 @@ router.get(
 router.patch(
   "/transfer/:id",
   protect,
-  permissionGranted("owner", "warehouse"),
+  permissionGranted("owner", "admin", "cashier", "warehouse"),
   updateTransferStatus
 );
 export default router;

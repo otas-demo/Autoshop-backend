@@ -16,7 +16,7 @@ const router = express.Router();
 router.post(
   "/grn",
   protect,
-  permissionGranted("owner", "admin", "warehouse"),
+  permissionGranted("owner", "admin", "cashier", "warehouse"),
   createGRN
 );
 
@@ -24,7 +24,7 @@ router.post(
 router.get(
   "/grn",
   protect,
-  permissionGranted("owner", "admin", "warehouse"),
+  permissionGranted("owner", "admin", "cashier", "warehouse"),
   getAllGRN
 );
 
@@ -32,7 +32,7 @@ router.get(
 router.get(
   "/grn/:id",
   protect,
-  permissionGranted("owner", "admin", "warehouse"),
+  permissionGranted("owner", "admin", "cashier", "warehouse"),
   getGRNById
 );
 
@@ -40,7 +40,7 @@ router.get(
 router.patch(
   "/grn/:id/status",
   protect,
-  permissionGranted("owner", "admin", "warehouse"),
+  permissionGranted("owner", "admin", "cashier", "warehouse"),
   updateGRNStatus
 );
 
@@ -48,7 +48,7 @@ router.patch(
 router.patch(
   "/grn/:id/line-items",
   protect,
-  permissionGranted("owner", "admin", "warehouse"),
+  permissionGranted("owner", "admin", "cashier", "warehouse"),
   updateGRNLineItems
 );
 
