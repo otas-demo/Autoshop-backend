@@ -1393,3 +1393,334 @@ export const hardDeleteOrder = asyncErrorHandler(async (req, res, next) => {
     data: deletedOrder,
   });
 });
+
+// Update entire order (items, quantities, financial totals, customer, payment method, note) with delta stock sync
+export const updateEntireOrder = asyncErrorHandler(async (req, res, next) => {
+  const { orderId } = req.params;
+  const {
+    ordersProducts,
+    subTotal,
+    tax = 0,
+    discount = 0,
+    finalAmount,
+    paidAmount,
+    paymentType,
+    paymentMethod,
+    creditPersonId,
+    note,
+    orderDate,
+  } = req.body;
+
+  // Validate orderId
+  if (!mongoose.Types.ObjectId.isValid(orderId)) {
+    return next(new CustomError(400, "Invalid order ID format"));
+  }
+
+  // Validate ordersProducts
+  if (!ordersProducts || !Array.isArray(ordersProducts) || ordersProducts.length === 0) {
+    return next(new CustomError(400, "Order must have at least one product"));
+  }
+
+  // Validate each product
+  for (let i = 0; i < ordersProducts.length; i++) {
+    const item = ordersProducts[i];
+    if (!item.inventoryId) {
+      return next(new CustomError(400, `Product at index ${i}: Inventory ID is required`));
+    }
+    if (!mongoose.Types.ObjectId.isValid(item.inventoryId)) {
+      return next(new CustomError(400, `Product at index ${i}: Invalid inventory ID format`));
+    }
+    if (!item.quantity || Number(item.quantity) < 1) {
+      return next(new CustomError(400, `Product at index ${i}: Quantity must be at least 1`));
+    }
+  }
+
+  // Validate creditPersonId if provided
+  if (creditPersonId && !mongoose.Types.ObjectId.isValid(creditPersonId)) {
+    return next(new CustomError(400, "Invalid credit person ID format"));
+  }
+
+  // Validate paymentType
+  if (paymentType && !["credit", "paid"].includes(paymentType)) {
+    return next(new CustomError(400, "Invalid payment type. Allowed values: credit, paid"));
+  }
+
+  if (paidAmount !== undefined && Number(paidAmount) < 0) {
+    return next(new CustomError(400, "Paid amount cannot be negative"));
+  }
+
+  const session = await mongoose.startSession();
+
+  try {
+    await session.withTransaction(async () => {
+      // 1. Validate order exists and is not deleted
+      const order = await Order.findById(orderId).session(session);
+      if (!order) {
+        throw new CustomError(404, "Order not found");
+      }
+      if (order.isDeleted) {
+        throw new CustomError(400, "Cannot update deleted order");
+      }
+
+      const storefrontId = order.storefrontId;
+
+      // 1a. Validate credit person if provided
+      if (creditPersonId) {
+        const creditPerson = await CreditPerson.findById(creditPersonId).session(session);
+        if (!creditPerson) {
+          throw new CustomError(404, "Credit person not found");
+        }
+        if (creditPerson.blacklist) {
+          throw new CustomError(
+            400,
+            `Cannot link blacklisted credit person to order: ${creditPerson.blacklistReason || "No reason provided"}`
+          );
+        }
+      }
+
+      // 2. Fetch inventory items for all incoming products
+      const incomingInventoryIds = ordersProducts.map(
+        (p) => new mongoose.Types.ObjectId(p.inventoryId)
+      );
+      const inventoryItems = await Inventory.find({
+        _id: { $in: incomingInventoryIds },
+      }).session(session);
+
+      if (inventoryItems.length !== incomingInventoryIds.length) {
+        const foundIds = inventoryItems.map((item) => item._id.toString());
+        const missingIds = incomingInventoryIds.filter(
+          (id) => !foundIds.includes(id.toString())
+        );
+        throw new CustomError(
+          404,
+          `Inventory items not found: ${missingIds.join(", ")}`
+        );
+      }
+
+      const inventoryMap = new Map();
+      inventoryItems.forEach((item) => {
+        inventoryMap.set(item._id.toString(), item);
+      });
+
+      // 3. Map old products in the order: inventoryId string -> { quantity, unitPrice, buyingPrice }
+      const oldProductMap = new Map();
+      for (const op of order.ordersProducts) {
+        const idStr = op.inventoryId.toString();
+        oldProductMap.set(idStr, {
+          quantity: (oldProductMap.get(idStr)?.quantity || 0) + op.quantity,
+          unitPrice: op.unitPrice,
+          buyingPrice: op.buyingPrice,
+        });
+      }
+
+      // 4. Map new products: inventoryId string -> quantity
+      const newProductMap = new Map();
+      for (const np of ordersProducts) {
+        const idStr = np.inventoryId.toString();
+        newProductMap.set(
+          idStr,
+          (newProductMap.get(idStr) || 0) + Number(np.quantity)
+        );
+      }
+
+      // 5. Calculate stock delta for all affected products
+      const allInventoryIdStrs = new Set([
+        ...oldProductMap.keys(),
+        ...newProductMap.keys(),
+      ]);
+
+      for (const idStr of allInventoryIdStrs) {
+        const oldQty = oldProductMap.get(idStr)?.quantity || 0;
+        const newQty = newProductMap.get(idStr) || 0;
+        const delta = newQty - oldQty;
+
+        if (delta > 0) {
+          // Additional quantity needed -> Deduct from StorefrontInventory (FIFO)
+          const stockRecords = await StorefrontInventory.find(
+            {
+              inventoryId: new mongoose.Types.ObjectId(idStr),
+              storefrontId: storefrontId,
+              quantity: { $gt: 0 },
+            },
+            null,
+            { session, sort: { createdAt: 1 } }
+          );
+
+          const totalAvailable = (stockRecords || []).reduce(
+            (sum, r) => sum + (r.quantity || 0),
+            0
+          );
+
+          if (totalAvailable < delta) {
+            const invItem = inventoryMap.get(idStr);
+            throw new CustomError(
+              400,
+              `Insufficient stock for product '${invItem?.productCode || idStr}' (${invItem?.productName || "Unknown"}). Available extra: ${totalAvailable}, Required extra: ${delta}`
+            );
+          }
+
+          let remaining = delta;
+          for (const record of stockRecords) {
+            if (remaining <= 0) break;
+            const batchQty = record.quantity || 0;
+            if (batchQty <= 0) continue;
+            const deduct = Math.min(batchQty, remaining);
+            record.quantity -= deduct;
+            record.lastUpdated = new Date();
+            await record.save({ session });
+            remaining -= deduct;
+          }
+        } else if (delta < 0) {
+          // Quantity reduced -> Restore stock to StorefrontInventory
+          const returnQty = Math.abs(delta);
+          const stockRecord = await StorefrontInventory.findOne(
+            {
+              inventoryId: new mongoose.Types.ObjectId(idStr),
+              storefrontId: storefrontId,
+            },
+            null,
+            { session, sort: { createdAt: -1 } }
+          );
+
+          if (stockRecord) {
+            stockRecord.quantity += returnQty;
+            stockRecord.lastUpdated = new Date();
+            await stockRecord.save({ session });
+          } else {
+            await StorefrontInventory.create(
+              [
+                {
+                  inventoryId: new mongoose.Types.ObjectId(idStr),
+                  storefrontId: storefrontId,
+                  quantity: returnQty,
+                  lastUpdated: new Date(),
+                },
+              ],
+              { session }
+            );
+          }
+        }
+      }
+
+      // 6. Build updated ordersProducts array
+      const updatedOrdersProducts = [];
+      let calculatedSubTotal = 0;
+
+      for (const [idStr, qty] of newProductMap.entries()) {
+        const invItem = inventoryMap.get(idStr);
+        let unitPrice = oldProductMap.get(idStr)?.unitPrice;
+        const incomingItem = ordersProducts.find(
+          (p) => p.inventoryId.toString() === idStr
+        );
+
+        if (
+          incomingItem &&
+          incomingItem.unitPrice !== undefined &&
+          incomingItem.unitPrice !== null
+        ) {
+          unitPrice = Number(incomingItem.unitPrice);
+        } else if (unitPrice === undefined || unitPrice === null) {
+          unitPrice = invItem.sellingPrice;
+          if (invItem.wholesalePrices && invItem.wholesalePrices.length > 0) {
+            const sorted = [...invItem.wholesalePrices].sort(
+              (a, b) => b.quantity - a.quantity
+            );
+            const tier = sorted.find((wp) => qty >= wp.quantity);
+            if (tier) unitPrice = tier.price;
+          }
+        }
+
+        const buyingPrice =
+          oldProductMap.get(idStr)?.buyingPrice ?? (invItem.buyingPrice || 0);
+
+        calculatedSubTotal += qty * unitPrice;
+
+        updatedOrdersProducts.push({
+          inventoryId: new mongoose.Types.ObjectId(idStr),
+          quantity: qty,
+          unitPrice,
+          buyingPrice,
+        });
+      }
+
+      // 7. Calculate financial totals
+      const finalSubTotal =
+        subTotal !== undefined && subTotal !== null
+          ? Number(subTotal)
+          : calculatedSubTotal;
+      const numTax = tax !== undefined && tax !== null ? Number(tax) : (order.tax || 0);
+      const numDiscount =
+        discount !== undefined && discount !== null
+          ? Number(discount)
+          : (order.discount || 0);
+      const calculatedFinalAmount =
+        finalAmount !== undefined && finalAmount !== null
+          ? Number(finalAmount)
+          : Math.max(0, finalSubTotal + numTax - numDiscount);
+      const numPaidAmount =
+        paidAmount !== undefined && paidAmount !== null
+          ? Number(paidAmount)
+          : order.paidAmount;
+
+      order.ordersProducts = updatedOrdersProducts;
+      order.subTotal = finalSubTotal;
+      order.tax = numTax;
+      order.discount = numDiscount;
+      order.finalAmount = calculatedFinalAmount;
+      order.paidAmount = numPaidAmount;
+      order.extraChange = Math.max(0, numPaidAmount - calculatedFinalAmount);
+
+      if (paymentType) order.paymentType = paymentType;
+      if (paymentMethod) order.paymentMethod = paymentMethod;
+      if (note !== undefined) order.note = note;
+      if (creditPersonId !== undefined) {
+        order.creditPersonId = creditPersonId
+          ? new mongoose.Types.ObjectId(creditPersonId)
+          : null;
+      }
+      if (orderDate) {
+        const parsed = new Date(orderDate);
+        if (!isNaN(parsed.getTime())) {
+          const origTime = new Date(order.createdAt);
+          parsed.setHours(
+            origTime.getHours(),
+            origTime.getMinutes(),
+            origTime.getSeconds(),
+            origTime.getMilliseconds()
+          );
+          order.createdAt = parsed;
+        }
+      }
+
+      await order.save({ session });
+
+      await order.populate("storefrontId", "locationName locationCode");
+      await order.populate(
+        "ordersProducts.inventoryId",
+        "productName productCode SKU"
+      );
+      await order.populate("creditPersonId", "name phone address");
+      await order.populate("soldBy", "name role");
+
+      res.status(200).json({
+        success: true,
+        message: "Order updated successfully",
+        data: order,
+      });
+    });
+  } catch (error) {
+    if (error instanceof CustomError) {
+      return next(error);
+    }
+    if (error.name === "ValidationError") {
+      const errors = Object.values(error.errors).map((val) => val.message);
+      return next(new CustomError(400, `Validation error: ${errors.join(". ")}`));
+    }
+    console.error("Update entire order error:", error);
+    return next(
+      new CustomError(500, `Failed to update order: ${error.message || error}`)
+    );
+  } finally {
+    await session.endSession();
+  }
+});
