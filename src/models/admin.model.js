@@ -27,6 +27,20 @@ const adminSchema = new mongoose.Schema({
     enum: ["owner", "admin", "cashier", "warehouse"],
     required: [true, "Role is required"],
   },
+  modules: {
+    type: [String],
+    enum: [
+      "sales",
+      "inventory",
+      "warehouse",
+      "purchasing",
+      "credits",
+      "expenses",
+      "reports",
+      "accounts",
+    ],
+    default: [],
+  },
   locationId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "LocationProfile",

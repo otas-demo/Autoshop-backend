@@ -6,15 +6,18 @@ import {
   updateWarehouseStockQuantity,
   getExpiringWarehouseStock,
 } from "../controllers/warehouse.controller.js";
-import { protect } from "../controllers/administrationPolicy.controller.js";
-import { permissionGranted } from "../controllers/administrationPolicy.controller.js";
+import {
+  protect,
+  checkModulePermission,
+} from "../controllers/administrationPolicy.controller.js";
+
 const router = express.Router();
 
 // Create new warehouse stock record
 router.post(
   "/warehouse",
   protect,
-  permissionGranted("owner", "admin", "warehouse"),
+  checkModulePermission("warehouse"),
   createWarehouseStock
 );
 
@@ -22,7 +25,7 @@ router.post(
 router.get(
   "/warehouse",
   protect,
-  permissionGranted("owner", "admin", "cashier", "warehouse"),
+  checkModulePermission("warehouse"),
   getAllWarehouseStock
 );
 
@@ -30,7 +33,7 @@ router.get(
 router.get(
   "/warehouse/:warehouseId/expiring-stock",
   protect,
-  permissionGranted("owner", "admin", "cashier", "warehouse"),
+  checkModulePermission("warehouse"),
   getExpiringWarehouseStock
 );
 
@@ -38,7 +41,7 @@ router.get(
 router.get(
   "/warehouse/:id",
   protect,
-  permissionGranted("owner", "admin", "cashier", "warehouse"),
+  checkModulePermission("warehouse"),
   getWarehouseStockById
 );
 
@@ -46,7 +49,7 @@ router.get(
 router.patch(
   "/warehouse/:id/quantity",
   protect,
-  permissionGranted("owner", "warehouse"),
+  checkModulePermission("warehouse"),
   updateWarehouseStockQuantity
 );
 

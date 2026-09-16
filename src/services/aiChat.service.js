@@ -350,7 +350,6 @@ export async function processAiChat(
   const cacheKey = `${defaults.storefrontId || ""}:${message.trim()}`;
   const cached = aiCache.get(cacheKey);
   if (cached) {
-    console.log(`[AICache] HIT for key: ${cacheKey}`);
     return cached;
   }
 
@@ -400,7 +399,6 @@ export async function processAiChat(
           "I don't have enough information to answer that.",
         toolCalls: toolCallsUsed,
       };
-      console.log(`[AICache] SET for key: ${cacheKey}`);
       aiCache.set(cacheKey, result);
       return result;
     }
@@ -433,7 +431,6 @@ export async function processAiChat(
       "I processed your request but couldn't generate a proper response.",
     toolCalls: toolCallsUsed,
   };
-  console.log(`[AICache] SET for key: ${cacheKey}`);
   aiCache.set(cacheKey, result);
   return result;
 }

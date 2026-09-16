@@ -7,8 +7,11 @@ import {
   getCreditRecordsByCreditPersonId,
   hardDeleteCreditRecord,
 } from "../controllers/creditRecord.controller.js";
-import { protect } from "../controllers/administrationPolicy.controller.js";
-import { permissionGranted } from "../controllers/administrationPolicy.controller.js";
+import {
+  protect,
+  permissionGranted,
+  checkModulePermission,
+} from "../controllers/administrationPolicy.controller.js";
 
 const router = express.Router();
 
@@ -16,7 +19,7 @@ const router = express.Router();
 router.post(
   "/credit-record",
   protect,
-  permissionGranted("owner", "admin", "cashier", "warehouse"),
+  checkModulePermission("credits"),
   createCreditPayment
 );
 
@@ -24,7 +27,7 @@ router.post(
 router.get(
   "/credit-record",
   protect,
-  permissionGranted("owner", "admin", "cashier", "warehouse"),
+  checkModulePermission("credits"),
   getAllCreditRecords
 );
 
@@ -32,7 +35,7 @@ router.get(
 router.get(
   "/credit-record/:id",
   protect,
-  permissionGranted("owner", "admin", "cashier", "warehouse"),
+  checkModulePermission("credits"),
   getCreditRecordById
 );
 
@@ -40,7 +43,7 @@ router.get(
 router.get(
   "/order/:orderId/credit-records",
   protect,
-  permissionGranted("owner", "admin", "cashier", "warehouse"),
+  checkModulePermission("credits"),
   getCreditRecordsByOrderId
 );
 
@@ -48,15 +51,15 @@ router.get(
 router.get(
   "/credit-persona/:creditPersonId/credit-records",
   protect,
-  permissionGranted("owner", "admin", "cashier", "warehouse"),
+  checkModulePermission("credits"),
   getCreditRecordsByCreditPersonId
 );
 
-// Hard delete credit record
+// Hard delete credit record (owner only)
 router.delete(
   "/credit-record/:id",
   protect,
-  permissionGranted("owner", "warehouse"),
+  permissionGranted("owner"),
   hardDeleteCreditRecord
 );
 

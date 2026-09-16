@@ -3,8 +3,10 @@ import {
   getDailyReports,
   getLatestDailyReport,
 } from "../controllers/dailyReport.controller.js";
-import { protect } from "../controllers/administrationPolicy.controller.js";
-import { permissionGranted } from "../controllers/administrationPolicy.controller.js";
+import {
+  protect,
+  checkModulePermission,
+} from "../controllers/administrationPolicy.controller.js";
 
 const router = express.Router();
 
@@ -12,7 +14,7 @@ const router = express.Router();
 router.get(
   "/daily-reports",
   protect,
-  permissionGranted("owner", "admin", "cashier", "warehouse"),
+  checkModulePermission("reports"),
   getDailyReports
 );
 
@@ -20,7 +22,7 @@ router.get(
 router.get(
   "/daily-reports/latest",
   protect,
-  permissionGranted("owner", "admin", "cashier", "warehouse"),
+  checkModulePermission("reports"),
   getLatestDailyReport
 );
 

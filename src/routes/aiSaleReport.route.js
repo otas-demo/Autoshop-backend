@@ -7,50 +7,52 @@ import {
   getCreditPersonaProducts,
   getProductsByCreditPerson,
 } from "../controllers/aiSaleReport.controller.js";
-import { protect } from "../controllers/administrationPolicy.controller.js";
-import { permissionGranted } from "../controllers/administrationPolicy.controller.js";
+import {
+  protect,
+  checkModulePermission,
+} from "../controllers/administrationPolicy.controller.js";
 
 const router = express.Router();
 
 router.get(
   "/ai-sale-report/summary",
   protect,
-  permissionGranted("owner", "admin", "cashier", "warehouse"),
+  checkModulePermission("reports"),
   getSummary
 );
 
 router.get(
   "/ai-sale-report/payment-methods",
   protect,
-  permissionGranted("owner", "admin", "cashier", "warehouse"),
+  checkModulePermission("reports"),
   getPaymentMethods
 );
 
 router.get(
   "/ai-sale-report/credit-sales",
   protect,
-  permissionGranted("owner", "admin", "cashier", "warehouse"),
+  checkModulePermission("reports"),
   getCreditSales
 );
 
 router.get(
   "/ai-sale-report/products/top",
   protect,
-  permissionGranted("owner", "admin", "cashier", "warehouse"),
+  checkModulePermission("reports"),
   getTopProducts
 );
 
 router.get(
   "/ai-sale-report/credit-persona-products",
   protect,
-  permissionGranted("owner", "admin", "cashier", "warehouse"),
+  checkModulePermission("reports"),
   getCreditPersonaProducts
 );
 
 router.get(
   "/ai-sale-report/products-by-credit-person",
   protect,
-  permissionGranted("owner", "admin", "cashier", "warehouse"),
+  checkModulePermission("reports"),
   getProductsByCreditPerson
 );
 

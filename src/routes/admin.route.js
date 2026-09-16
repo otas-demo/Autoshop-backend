@@ -10,33 +10,37 @@ import {
   userRestore,
   userDelete,
 } from "../controllers/admin.controller.js";
-import { protect } from "../controllers/administrationPolicy.controller.js";
-import { permissionGranted } from "../controllers/administrationPolicy.controller.js";
+import {
+  protect,
+  permissionGranted,
+  checkModulePermission,
+} from "../controllers/administrationPolicy.controller.js";
+
 const router = express.Router();
 
 router.post(
   "/admin/signup",
   protect,
-  permissionGranted("owner", "admin"),
+  checkModulePermission("accounts"),
   signup
 );
 router.post("/admin/login", login);
 router.get(
   "/admin",
   protect,
-  permissionGranted("owner", "admin"),
+  checkModulePermission("accounts"),
   getAllAccounts
 );
 router.get(
   "/admin/:accountId",
   protect,
-  permissionGranted("owner", "admin"),
+  checkModulePermission("accounts"),
   getAccountById
 );
 router.patch(
   "/admin/:accountId",
   protect,
-  permissionGranted("owner"),
+  checkModulePermission("accounts"),
   updateUser
 );
 router.patch(

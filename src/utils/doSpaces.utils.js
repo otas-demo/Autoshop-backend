@@ -38,10 +38,6 @@ export const uploadImageToSpaces = async (file, folderName) => {
       params: uploadParams,
     });
 
-    uploader.on("httpUploadProgress", (progress) => {
-      console.log("Upload progress:", progress);
-    });
-
     const data = await uploader.done(); // Execute the upload
 
     return {

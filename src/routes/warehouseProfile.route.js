@@ -5,15 +5,18 @@ import {
   getWarehouseProfileById,
   updateWarehouseProfile,
 } from "../controllers/warehouseProfile.controller.js";
-import { protect } from "../controllers/administrationPolicy.controller.js";
-import { permissionGranted } from "../controllers/administrationPolicy.controller.js";
+import {
+  protect,
+  checkModulePermission,
+} from "../controllers/administrationPolicy.controller.js";
+
 const router = express.Router();
 
 // Create new warehouse profile
 router.post(
   "/warehouse-profile",
   protect,
-  permissionGranted("owner", "admin", "warehouse"),
+  checkModulePermission("warehouse"),
   createWarehouseProfile
 );
 
@@ -21,7 +24,7 @@ router.post(
 router.get(
   "/warehouse-profile",
   protect,
-  permissionGranted("owner", "admin", "cashier", "warehouse"),
+  checkModulePermission("warehouse"),
   getAllWarehouseProfiles
 );
 
@@ -29,7 +32,7 @@ router.get(
 router.get(
   "/warehouse-profile/:id",
   protect,
-  permissionGranted("owner", "admin", "cashier", "warehouse"),
+  checkModulePermission("warehouse"),
   getWarehouseProfileById
 );
 
@@ -37,7 +40,7 @@ router.get(
 router.patch(
   "/warehouse-profile/:id",
   protect,
-  permissionGranted("owner", "warehouse"),
+  checkModulePermission("warehouse"),
   updateWarehouseProfile
 );
 

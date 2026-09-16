@@ -475,7 +475,6 @@ export const getAllPurchases = asyncErrorHandler(async (req, res, next) => {
   sort[sortBy] = sortOrder === "asc" ? 1 : -1;
 
   // Execute query with population
-  console.log("getAllPurchases query:", JSON.stringify(query));
   const purchases = await Purchasing.find(query)
     .populate("purchasedBy", "name role")
     .populate("supplierId", "supplierName supplierCode contactNumber")

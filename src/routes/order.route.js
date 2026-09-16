@@ -11,40 +11,43 @@ import {
   hardDeleteOrder,
   updateEntireOrder,
 } from "../controllers/order.controller.js";
+import {
+  protect,
+  permissionGranted,
+  checkModulePermission,
+} from "../controllers/administrationPolicy.controller.js";
 
 const router = express.Router();
-import { protect } from "../controllers/administrationPolicy.controller.js";
-import { permissionGranted } from "../controllers/administrationPolicy.controller.js";
 
 // Create new order
 router.post(
   "/order",
   protect,
-  permissionGranted("owner", "admin", "cashier"),
+  checkModulePermission("sales"),
   createOrder
 );
 router.get(
   "/order",
   protect,
-  permissionGranted("owner", "admin", "cashier"),
+  checkModulePermission("sales"),
   getAllOrders
 );
 router.get(
   "/order/:orderId",
   protect,
-  permissionGranted("owner", "admin", "cashier"),
+  checkModulePermission("sales"),
   getOrders
 );
 router.patch(
   "/order/:orderId",
   protect,
-  permissionGranted("owner", "admin"),
+  checkModulePermission("sales"),
   updateEntireOrder
 );
 router.get(
   "/order/storefront/:storefrontId",
   protect,
-  permissionGranted("owner", "admin", "cashier"),
+  checkModulePermission("sales"),
   getOrdersByStorefrontId
 );
 
@@ -52,7 +55,7 @@ router.get(
 router.patch(
   "/order/:orderId/credit-person",
   protect,
-  permissionGranted("owner", "admin", "cashier"),
+  checkModulePermission("sales"),
   updateOrderCreditPersonId
 );
 
@@ -60,7 +63,7 @@ router.patch(
 router.patch(
   "/order/:orderId/paid-amount",
   protect,
-  permissionGranted("owner"),
+  checkModulePermission("sales"),
   updateOrderPaidAmount
 );
 
@@ -68,7 +71,7 @@ router.patch(
 router.patch(
   "/order/:orderId/items/add",
   protect,
-  permissionGranted("owner"),
+  checkModulePermission("sales"),
   addOrderItems
 );
 
@@ -76,11 +79,16 @@ router.patch(
 router.patch(
   "/order/:orderId/items/remove",
   protect,
-  permissionGranted("owner"),
+  checkModulePermission("sales"),
   removeOrderItems
 );
 
-// Hard delete order
-router.delete("/order/:orderId", hardDeleteOrder);
+// Hard delete order (restricted to owner)
+router.delete(
+  "/order/:orderId",
+  protect,
+  permissionGranted("owner"),
+  hardDeleteOrder
+);
 
 export default router;

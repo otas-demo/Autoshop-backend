@@ -2,10 +2,11 @@ import Admin from "../models/admin.model.js";
 import asyncErrorHandler from "../utils/asyncErrorHandler.js";
 import CustomError from "../utils/customError.js";
 import { signToken } from "../services/jwtToken.service.js";
+import { DEFAULT_ROLE_MODULES } from "./administrationPolicy.controller.js";
 import mongoose from "mongoose";
 
 export const signup = asyncErrorHandler(async (req, res, next) => {
-  const { name, password, confirmPassword, role, locationId } = req.body;
+  const { name, password, confirmPassword, role, locationId, modules } = req.body;
 
   if (!name || !password || !confirmPassword) {
     return next(new CustomError(400, "Missing required fields for signup."));
@@ -15,11 +16,17 @@ export const signup = asyncErrorHandler(async (req, res, next) => {
     return next(new CustomError(400, "Passwords do not match."));
   }
 
+  const initialModules =
+    Array.isArray(modules) && modules.length > 0
+      ? modules
+      : DEFAULT_ROLE_MODULES[role] || [];
+
   const admin = await Admin.create({
     name,
     password,
     confirmPassword,
     role,
+    modules: initialModules,
     locationId,
   });
 
@@ -28,8 +35,10 @@ export const signup = asyncErrorHandler(async (req, res, next) => {
     message: "Admin created successfully.",
     data: {
       admin: {
+        _id: admin._id,
         name: admin.name,
         role: admin.role,
+        modules: admin.modules,
       },
       token: signToken(admin._id, admin.role, admin.locationId),
     },
@@ -77,8 +86,13 @@ export const login = asyncErrorHandler(async (req, res, next) => {
     message: "Admin Dashboard.",
     data: {
       admin: {
+        _id: admin._id,
         name: admin.name,
         role: admin.role,
+        modules:
+          Array.isArray(admin.modules) && admin.modules.length > 0
+            ? admin.modules
+            : DEFAULT_ROLE_MODULES[admin.role] || [],
         locationId: admin.locationId,
       },
       token,
@@ -204,15 +218,24 @@ export const userDelete = asyncErrorHandler(async (req, res, next) => {
 });
 
 export const getAllAccounts = asyncErrorHandler(async (req, res, next) => {
-  const admin = await Admin.find()
+  const admins = await Admin.find()
     .select("-password")
-    .populate("locationId", "type locationName locationCode locationAddress");
+    .populate("locationId", "type locationName locationCode locationAddress")
+    .lean();
+
+  const accountsWithModules = admins.map((acc) => ({
+    ...acc,
+    modules:
+      Array.isArray(acc.modules) && acc.modules.length > 0
+        ? acc.modules
+        : DEFAULT_ROLE_MODULES[acc.role] || [],
+  }));
 
   res.status(200).json({
     success: true,
     message: "All users fetched successfully.",
     data: {
-      accounts: admin,
+      accounts: accountsWithModules,
     },
   });
 });
@@ -240,6 +263,10 @@ export const getAccountById = asyncErrorHandler(async (req, res, next) => {
       accountId: admin._id,
       name: admin.name,
       role: admin.role,
+      modules:
+        Array.isArray(admin.modules) && admin.modules.length > 0
+          ? admin.modules
+          : DEFAULT_ROLE_MODULES[admin.role] || [],
       locationId: admin.locationId,
     },
   });
@@ -247,7 +274,7 @@ export const getAccountById = asyncErrorHandler(async (req, res, next) => {
 
 export const updateUser = asyncErrorHandler(async (req, res, next) => {
   const { accountId } = req.params;
-  const { name, role, locationId } = req.body;
+  const { name, role, locationId, modules } = req.body;
 
   if (!mongoose.Types.ObjectId.isValid(accountId)) {
     return next(new CustomError(400, "Invalid user ID format."));
@@ -262,6 +289,9 @@ export const updateUser = asyncErrorHandler(async (req, res, next) => {
   }
   if (locationId !== undefined) {
     updateFields.locationId = locationId;
+  }
+  if (modules !== undefined && Array.isArray(modules)) {
+    updateFields.modules = modules;
   }
 
   if (updateFields.softDeleted) {

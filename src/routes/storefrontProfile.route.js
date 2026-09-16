@@ -5,15 +5,18 @@ import {
   getStorefrontProfileById,
   updateStorefrontProfile,
 } from "../controllers/storefrontProfile.controller.js";
-import { protect } from "../controllers/administrationPolicy.controller.js";
-import { permissionGranted } from "../controllers/administrationPolicy.controller.js";
+import {
+  protect,
+  checkModulePermission,
+} from "../controllers/administrationPolicy.controller.js";
+
 const router = express.Router();
 
 // Create new storefront profile
 router.post(
   "/storefront-profile",
   protect,
-  permissionGranted("owner", "admin", "warehouse"),
+  checkModulePermission("inventory", "warehouse"),
   createStorefrontProfile
 );
 
@@ -21,7 +24,7 @@ router.post(
 router.get(
   "/storefront-profile",
   protect,
-  permissionGranted("owner", "admin", "cashier", "warehouse"),
+  checkModulePermission("sales", "inventory", "warehouse"),
   getAllStorefrontProfiles
 );
 
@@ -29,7 +32,7 @@ router.get(
 router.get(
   "/storefront-profile/:id",
   protect,
-  permissionGranted("owner", "admin", "cashier", "warehouse"),
+  checkModulePermission("sales", "inventory", "warehouse"),
   getStorefrontProfileById
 );
 
@@ -37,7 +40,7 @@ router.get(
 router.patch(
   "/storefront-profile/:id",
   protect,
-  permissionGranted("owner", "warehouse"),
+  checkModulePermission("inventory", "warehouse"),
   updateStorefrontProfile
 );
 

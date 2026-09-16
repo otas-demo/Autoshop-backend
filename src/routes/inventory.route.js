@@ -9,8 +9,10 @@ import {
   getAllCategories,
   updateBatchExpiryDate,
 } from "../controllers/inventory.controller.js";
-import { protect } from "../controllers/administrationPolicy.controller.js";
-import { permissionGranted } from "../controllers/administrationPolicy.controller.js";
+import {
+  protect,
+  checkModulePermission,
+} from "../controllers/administrationPolicy.controller.js";
 
 const router = express.Router();
 
@@ -40,16 +42,16 @@ const upload = multer({
 router.post(
   "/inventory/import-excel",
   protect,
-  permissionGranted("owner", "admin", "cashier", "warehouse"),
+  checkModulePermission("inventory"),
   upload.single("file"),
   importInventoryFromExcel,
 );
 
-// Get all unique categories
+// Get all unique categories (inventory, sales POS, purchasing, warehouse)
 router.get(
   "/inventory/categories",
   protect,
-  permissionGranted("owner", "admin", "cashier", "warehouse"),
+  checkModulePermission("inventory", "sales", "purchasing", "warehouse"),
   getAllCategories,
 );
 
@@ -57,23 +59,23 @@ router.get(
 router.post(
   "/inventory",
   protect,
-  permissionGranted("owner", "admin", "cashier", "warehouse"),
+  checkModulePermission("inventory"),
   createInventory,
 );
 
-// Get all inventory items
+// Get all inventory items (read-only: needed by inventory, purchasing for PO, sales, and warehouse)
 router.get(
   "/inventory",
   protect,
-  permissionGranted("owner", "admin", "cashier", "warehouse"),
+  checkModulePermission("inventory", "purchasing", "sales", "warehouse"),
   getAllInventory,
 );
 
-// Get inventory item by ID
+// Get inventory item by ID (read-only)
 router.get(
   "/inventory/:id",
   protect,
-  permissionGranted("owner", "admin", "cashier", "warehouse"),
+  checkModulePermission("inventory", "purchasing", "sales", "warehouse"),
   getInventoryById,
 );
 
@@ -81,7 +83,7 @@ router.get(
 router.patch(
   "/inventory/:id",
   protect,
-  permissionGranted("owner", "admin", "cashier", "warehouse"),
+  checkModulePermission("inventory"),
   updateInventory,
 );
 
@@ -89,7 +91,7 @@ router.patch(
 router.patch(
   "/inventory/batch/expiry",
   protect,
-  permissionGranted("owner", "admin", "cashier", "warehouse"),
+  checkModulePermission("inventory"),
   updateBatchExpiryDate,
 );
 

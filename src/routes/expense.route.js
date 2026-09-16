@@ -12,6 +12,7 @@ import {
 import {
   protect,
   permissionGranted,
+  checkModulePermission,
 } from "../controllers/administrationPolicy.controller.js";
 
 const router = express.Router();
@@ -19,49 +20,49 @@ const router = express.Router();
 router.post(
   "/expense",
   protect,
-  permissionGranted("cashier", "admin", "owner", "warehouse"),
+  checkModulePermission("expenses"),
   createExpense
 );
 router.get(
   "/expense",
   protect,
-  permissionGranted("cashier", "admin", "owner", "warehouse"),
+  checkModulePermission("expenses"),
   getExpenses
 );
 router.get(
   "/expense/categories",
   protect,
-  permissionGranted("cashier", "admin", "owner", "warehouse"),
+  checkModulePermission("expenses"),
   getExpenseCategories
 );
 router.get(
   "/expense/:id",
   protect,
-  permissionGranted("cashier", "admin", "owner", "warehouse"),
+  checkModulePermission("expenses"),
   getExpenseById
 );
 router.patch(
   "/expense/:id",
   protect,
-  permissionGranted("owner", "warehouse"),
+  checkModulePermission("expenses"),
   updateExpense
 );
 router.patch(
   "/expense/:id/soft-delete",
   protect,
-  permissionGranted("owner", "warehouse"),
+  checkModulePermission("expenses"),
   softDeleteExpense
 );
 router.patch(
   "/expense/:id/restore",
   protect,
-  permissionGranted("owner", "warehouse"),
+  checkModulePermission("expenses"),
   restoreExpense
 );
 router.delete(
   "/expense/:id",
   protect,
-  permissionGranted("owner", "warehouse"),
+  permissionGranted("owner"),
   deleteExpense
 );
 export default router;

@@ -53,6 +53,71 @@ export const protect = asyncErrorHandler(async (req, res, next) => {
   next();
 });
 
+export const DEFAULT_ROLE_MODULES = {
+  owner: [
+    "sales",
+    "inventory",
+    "warehouse",
+    "purchasing",
+    "credits",
+    "expenses",
+    "reports",
+    "accounts",
+  ],
+  admin: [
+    "sales",
+    "inventory",
+    "warehouse",
+    "purchasing",
+    "credits",
+    "expenses",
+    "reports",
+  ],
+  cashier: ["sales", "credits", "expenses", "inventory"],
+  warehouse: [
+    "inventory",
+    "warehouse",
+    "purchasing",
+    "expenses",
+    "credits",
+    "reports",
+  ],
+};
+
+export const checkModulePermission = (...allowedModules) => {
+  return (req, res, next) => {
+    const user = req.user;
+    if (!user) {
+      return next(new CustomError(401, "Unauthorized. Authentication required."));
+    }
+
+    // Owner has unrestricted bypass for all modules
+    if (user.role === "owner") {
+      return next();
+    }
+
+    // Effective modules: user's custom modules or fallback to role defaults
+    const userModules =
+      Array.isArray(user.modules) && user.modules.length > 0
+        ? user.modules
+        : DEFAULT_ROLE_MODULES[user.role] || [];
+
+    const hasAccess = allowedModules.some((mod) => userModules.includes(mod));
+    if (!hasAccess) {
+      return next(
+        new CustomError(
+          403,
+          `Access denied. You do not have permission for module: [${allowedModules.join(
+            ", "
+          )}].`
+        )
+      );
+    }
+
+    next();
+  };
+};
+
 export const permissionGranted = (...allowedRoles) => {
   return (req, res, next) => {
     const role = req.user?.role;

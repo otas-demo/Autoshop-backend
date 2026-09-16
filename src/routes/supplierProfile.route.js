@@ -8,50 +8,53 @@ import {
   restoreSupplierProfile,
   deleteSupplierProfile,
 } from "../controllers/supplier.controller.js";
-import { protect } from "../controllers/administrationPolicy.controller.js";
-import { permissionGranted } from "../controllers/administrationPolicy.controller.js";
+import {
+  protect,
+  permissionGranted,
+  checkModulePermission,
+} from "../controllers/administrationPolicy.controller.js";
 const router = express.Router();
 
 router.post(
   "/supplier-profile",
   protect,
-  permissionGranted("owner", "admin", "cashier", "warehouse"),
+  checkModulePermission("purchasing"),
   createSupplierProfile
 );
 router.get(
   "/supplier-profile",
   protect,
-  permissionGranted("owner", "admin", "cashier", "warehouse"),
+  checkModulePermission("purchasing"),
   getAllSupplierProfiles
 );
 router.get(
   "/supplier-profile/:id",
   protect,
-  permissionGranted("owner", "admin", "cashier", "warehouse"),
+  checkModulePermission("purchasing"),
   getSupplierProfileById
 );
 router.patch(
   "/supplier-profile/:id",
   protect,
-  permissionGranted("owner", "admin", "cashier", "warehouse"),
+  checkModulePermission("purchasing"),
   updateSupplierProfile
 );
 router.patch(
   "/supplier-profile/:id/soft-delete",
   protect,
-  permissionGranted("owner", "warehouse"),
+  checkModulePermission("purchasing"),
   softDeleteSupplierProfile
 );
 router.patch(
   "/supplier-profile/:id/restore",
   protect,
-  permissionGranted("owner", "warehouse"),
+  checkModulePermission("purchasing"),
   restoreSupplierProfile
 );
 router.delete(
   "/supplier-profile/:id",
   protect,
-  permissionGranted("owner", "warehouse"),
+  permissionGranted("owner"),
   deleteSupplierProfile
 );
 export default router;

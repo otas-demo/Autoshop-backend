@@ -7,8 +7,10 @@ import {
   updateGRNLineItems,
 } from "../controllers/grn.controller.js";
 
-import { protect } from "../controllers/administrationPolicy.controller.js";
-import { permissionGranted } from "../controllers/administrationPolicy.controller.js";
+import {
+  protect,
+  checkModulePermission,
+} from "../controllers/administrationPolicy.controller.js";
 
 const router = express.Router();
 
@@ -16,7 +18,7 @@ const router = express.Router();
 router.post(
   "/grn",
   protect,
-  permissionGranted("owner", "admin", "cashier", "warehouse"),
+  checkModulePermission("warehouse", "purchasing"),
   createGRN
 );
 
@@ -24,7 +26,7 @@ router.post(
 router.get(
   "/grn",
   protect,
-  permissionGranted("owner", "admin", "cashier", "warehouse"),
+  checkModulePermission("warehouse", "purchasing"),
   getAllGRN
 );
 
@@ -32,7 +34,7 @@ router.get(
 router.get(
   "/grn/:id",
   protect,
-  permissionGranted("owner", "admin", "cashier", "warehouse"),
+  checkModulePermission("warehouse", "purchasing"),
   getGRNById
 );
 
@@ -40,7 +42,7 @@ router.get(
 router.patch(
   "/grn/:id/status",
   protect,
-  permissionGranted("owner", "admin", "cashier", "warehouse"),
+  checkModulePermission("warehouse", "purchasing"),
   updateGRNStatus
 );
 
@@ -48,7 +50,7 @@ router.patch(
 router.patch(
   "/grn/:id/line-items",
   protect,
-  permissionGranted("owner", "admin", "cashier", "warehouse"),
+  checkModulePermission("warehouse", "purchasing"),
   updateGRNLineItems
 );
 

@@ -482,7 +482,7 @@ export const getAllOrders = asyncErrorHandler(async (req, res, next) => {
   };
 
   // Extract query parameters
-  const { paymentType, paymentMethod, creditPersonId } = req.query;
+  const { paymentType, paymentMethod, creditPersonId, creditStatus, page, limit } = req.query;
 
   // Add creditPersonId filter if provided
   if (creditPersonId !== undefined && creditPersonId !== "") {
@@ -492,8 +492,39 @@ export const getAllOrders = asyncErrorHandler(async (req, res, next) => {
     filter.creditPersonId = new mongoose.Types.ObjectId(creditPersonId);
   }
 
+  // Add creditStatus filter if provided (only applies to credit payment status)
+  if (
+    creditStatus !== undefined &&
+    creditStatus !== "" &&
+    creditStatus !== "all"
+  ) {
+    const validCreditStatuses = ["fully_paid", "partial_paid", "unpaid"];
+    if (!validCreditStatuses.includes(creditStatus)) {
+      return next(
+        new CustomError(
+          400,
+          `Invalid credit status. Allowed values: ${validCreditStatuses.join(
+            ", ",
+          )}`,
+        ),
+      );
+    }
+    if (creditStatus === "fully_paid") {
+      filter.$expr = { $gte: ["$paidAmount", "$finalAmount"] };
+    } else if (creditStatus === "partial_paid") {
+      filter.$expr = {
+        $and: [
+          { $gt: ["$paidAmount", 0] },
+          { $lt: ["$paidAmount", "$finalAmount"] },
+        ],
+      };
+    } else if (creditStatus === "unpaid") {
+      filter.$expr = { $lte: ["$paidAmount", 0] };
+    }
+  }
+
   // Add paymentType filter if provided
-  if (paymentType !== undefined && paymentType !== "") {
+  if (paymentType !== undefined && paymentType !== "" && paymentType !== "all") {
     const validPaymentTypes = ["credit", "paid"];
     if (!validPaymentTypes.includes(paymentType)) {
       return next(
@@ -509,7 +540,7 @@ export const getAllOrders = asyncErrorHandler(async (req, res, next) => {
   }
 
   // Add paymentMethod filter if provided
-  if (paymentMethod !== undefined && paymentMethod !== "") {
+  if (paymentMethod !== undefined && paymentMethod !== "" && paymentMethod !== "all") {
     // Common payment methods: cash, card, bank_transfer, mobile_payment, etc.
     // Use case-insensitive regex to match both 'foc' and 'FOC' etc.
     filter.paymentMethod = new RegExp(`^${paymentMethod.trim()}$`, "i");
@@ -528,6 +559,51 @@ export const getAllOrders = asyncErrorHandler(async (req, res, next) => {
     return next(new CustomError(400, error.message || "Invalid date filter"));
   }
 
+  // Optional summaryCounts if creditPersonId filter is provided
+  let summaryCounts = undefined;
+  if (filter.creditPersonId) {
+    const [totalCount, paidCount, creditCount] = await Promise.all([
+      Order.countDocuments({ isDeleted: false, creditPersonId: filter.creditPersonId }),
+      Order.countDocuments({ isDeleted: false, creditPersonId: filter.creditPersonId, paymentType: "paid" }),
+      Order.countDocuments({ isDeleted: false, creditPersonId: filter.creditPersonId, paymentType: "credit" }),
+    ]);
+    summaryCounts = { totalCount, paidCount, creditCount };
+  }
+
+  // Handle pagination if page is provided
+  const pageNum = page !== undefined && page !== "" ? parseInt(page, 10) : null;
+  const limitNum = limit !== undefined && limit !== "" ? parseInt(limit, 10) : 10;
+
+  if (pageNum && pageNum > 0) {
+    const totalOrders = await Order.countDocuments(filter);
+    const totalPages = Math.ceil(totalOrders / limitNum);
+    const skip = (pageNum - 1) * limitNum;
+
+    const orders = await Order.find(filter)
+      .populate("storefrontId", "locationName locationCode")
+      .populate("ordersProducts.inventoryId", "productName productCode SKU")
+      .populate("creditPersonId", "name phone address")
+      .populate("soldBy", "name role")
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limitNum);
+
+    return res.status(200).json({
+      success: true,
+      message: "Orders fetched successfully",
+      data: orders,
+      pagination: {
+        currentPage: pageNum,
+        totalPages,
+        totalOrders,
+        limit: limitNum,
+        hasNextPage: pageNum < totalPages,
+        hasPrevPage: pageNum > 1,
+      },
+      summaryCounts,
+    });
+  }
+
   const orders = await Order.find(filter)
     .populate("storefrontId", "locationName locationCode")
     .populate("ordersProducts.inventoryId", "productName productCode SKU")
@@ -539,6 +615,7 @@ export const getAllOrders = asyncErrorHandler(async (req, res, next) => {
     success: true,
     message: "Orders fetched successfully",
     data: orders,
+    summaryCounts,
   });
 });
 

@@ -6,15 +6,18 @@ import {
   updateStorefrontInventoryQuantity,
   getExpiringStorefrontInventory,
 } from "../controllers/storefrontInventory.controller.js";
-import { protect } from "../controllers/administrationPolicy.controller.js";
-import { permissionGranted } from "../controllers/administrationPolicy.controller.js";
+import {
+  protect,
+  checkModulePermission,
+} from "../controllers/administrationPolicy.controller.js";
+
 const router = express.Router();
 
 // Create new storefront inventory
 router.post(
   "/storefront-inventory",
   protect,
-  permissionGranted("owner", "admin", "warehouse"),
+  checkModulePermission("inventory", "warehouse"),
   createStorefrontInventory
 );
 
@@ -22,7 +25,7 @@ router.post(
 router.get(
   "/storefront-inventory",
   protect,
-  permissionGranted("owner", "admin", "cashier", "warehouse"),
+  checkModulePermission("sales", "inventory", "warehouse"),
   getAllStorefrontInventory
 );
 
@@ -30,7 +33,7 @@ router.get(
 router.get(
   "/storefront-inventory/:storefrontId/expiring-stock",
   protect,
-  permissionGranted("owner", "admin", "cashier", "warehouse"),
+  checkModulePermission("sales", "inventory", "warehouse"),
   getExpiringStorefrontInventory
 );
 
@@ -38,7 +41,7 @@ router.get(
 router.get(
   "/storefront-inventory/:id",
   protect,
-  permissionGranted("owner", "admin", "cashier", "warehouse"),
+  checkModulePermission("sales", "inventory", "warehouse"),
   getStorefrontInventoryById
 );
 
@@ -46,7 +49,7 @@ router.get(
 router.patch(
   "/storefront-inventory/:id/quantity",
   protect,
-  permissionGranted("owner", "warehouse"),
+  checkModulePermission("inventory", "warehouse"),
   updateStorefrontInventoryQuantity
 );
 

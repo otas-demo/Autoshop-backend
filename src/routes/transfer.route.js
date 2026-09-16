@@ -6,32 +6,34 @@ import {
   updateTransferStatus,
 } from "../controllers/transfer.controller.js";
 
-import { protect } from "../controllers/administrationPolicy.controller.js";
-import { permissionGranted } from "../controllers/administrationPolicy.controller.js";
+import {
+  protect,
+  checkModulePermission,
+} from "../controllers/administrationPolicy.controller.js";
 const router = express.Router();
 
 router.post(
   "/transfer",
   protect,
-  permissionGranted("owner", "admin", "cashier", "warehouse"),
+  checkModulePermission("warehouse", "inventory"),
   createTransfer
 );
 router.get(
   "/transfer",
   protect,
-  permissionGranted("owner", "admin", "cashier", "warehouse"),
+  checkModulePermission("warehouse", "inventory"),
   getTransfers
 );
 router.get(
   "/transfer/:id",
   protect,
-  permissionGranted("owner", "admin", "cashier", "warehouse"),
+  checkModulePermission("warehouse", "inventory"),
   getTransferById
 );
 router.patch(
   "/transfer/:id",
   protect,
-  permissionGranted("owner", "admin", "cashier", "warehouse"),
+  checkModulePermission("warehouse", "inventory"),
   updateTransferStatus
 );
 export default router;

@@ -174,6 +174,21 @@ orderSchema.virtual("remainingBalance").get(function () {
   return Math.max(0, this.finalAmount - this.paidAmount);
 });
 
+// Virtual for credit payment status (fully_paid, partial_paid, unpaid)
+orderSchema.virtual("creditPaymentStatus").get(function () {
+  if (this.finalAmount == null) {
+    return null;
+  }
+  const paid = this.paidAmount || 0;
+  if (paid >= this.finalAmount) {
+    return "fully_paid";
+  }
+  if (paid > 0) {
+    return "partial_paid";
+  }
+  return "unpaid";
+});
+
 // Static method to generate order number
 // Format: ORD-YYYY-MM-DD-NNNNNN (e.g., ORD-2024-01-15-000001)
 // This format supports up to 999,999 orders per day

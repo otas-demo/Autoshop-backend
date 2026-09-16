@@ -14,7 +14,7 @@ import {
 } from "../controllers/purchase.controller.js";
 import {
   protect,
-  permissionGranted,
+  checkModulePermission,
 } from "../controllers/administrationPolicy.controller.js";
 
 const router = express.Router();
@@ -22,73 +22,73 @@ const router = express.Router();
 router.post(
   "/purchase",
   protect,
-  permissionGranted("owner", "admin", "cashier", "warehouse"),
+  checkModulePermission("purchasing"),
   createPurchase
 );
 router.put(
   "/purchase/:id",
   protect,
-  permissionGranted("owner", "admin", "cashier", "warehouse"),
+  checkModulePermission("purchasing"),
   updatePurchase
 );
 router.patch(
   "/purchase/:id",
   protect,
-  permissionGranted("owner", "admin", "cashier", "warehouse"),
+  checkModulePermission("purchasing"),
   updatePurchase
 );
 router.get(
   "/purchase",
   protect,
-  permissionGranted("owner", "admin", "cashier", "warehouse"),
+  checkModulePermission("purchasing"),
   getAllPurchases
 );
 router.get(
   "/purchase/report",
   protect,
-  permissionGranted("owner", "admin", "cashier", "warehouse"),
+  checkModulePermission("purchasing"),
   getPurchaseReport
 );
 router.get(
   "/purchase/:id",
   protect,
-  permissionGranted("owner", "admin", "cashier", "warehouse"),
+  checkModulePermission("purchasing"),
   getPurchaseById
 );
 router.patch(
   "/purchase/:id/status",
   protect,
-  permissionGranted("owner", "admin", "cashier", "warehouse"),
+  checkModulePermission("purchasing"),
   updatePurchaseStatus
 );
 router.post(
   "/purchase/:id/payments",
   protect,
-  permissionGranted("owner", "admin", "cashier", "warehouse"),
+  checkModulePermission("purchasing"),
   recordPurchasePayment
 );
 router.get(
   "/purchase/:id/payments",
   protect,
-  permissionGranted("owner", "admin", "cashier", "warehouse"),
+  checkModulePermission("purchasing"),
   getPurchasePayments
 );
 router.patch(
   "/purchase/:id/due-date",
   protect,
-  permissionGranted("owner", "admin", "cashier", "warehouse"),
+  checkModulePermission("purchasing"),
   updatePurchaseDueDate
 );
 router.patch(
   "/purchase/:id/soft-delete",
   protect,
-  permissionGranted("owner", "admin", "cashier", "warehouse"),
+  checkModulePermission("purchasing"),
   softDeletePurchase
 );
 router.patch(
   "/purchase/:id/restore",
   protect,
-  permissionGranted("owner", "admin", "cashier", "warehouse"),
+  checkModulePermission("purchasing"),
   restorePurchase
 );
 export default router;

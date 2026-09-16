@@ -5,33 +5,35 @@ import {
   getCreditPersonById,
   updateCreditPerson,
 } from "../controllers/creditPersona.controller.js";
-import { protect } from "../controllers/administrationPolicy.controller.js";
-import { permissionGranted } from "../controllers/administrationPolicy.controller.js";
+import {
+  protect,
+  checkModulePermission,
+} from "../controllers/administrationPolicy.controller.js";
 
 const router = Router();
 
 router.post(
   "/credit-persona",
   protect,
-  permissionGranted("owner", "admin", "cashier", "warehouse"),
+  checkModulePermission("credits", "sales"),
   createCreditPerson
 );
 router.get(
   "/credit-persona",
   protect,
-  permissionGranted("owner", "admin", "cashier", "warehouse"),
+  checkModulePermission("credits", "sales"),
   getAllCreditPersons
 );
 router.get(
   "/credit-persona/:id",
   protect,
-  permissionGranted("owner", "admin", "cashier", "warehouse"),
+  checkModulePermission("credits", "sales"),
   getCreditPersonById
 );
 router.patch(
   "/credit-persona/:id",
   protect,
-  permissionGranted("owner", "warehouse"),
+  checkModulePermission("credits"),
   updateCreditPerson
 );
 export default router;
