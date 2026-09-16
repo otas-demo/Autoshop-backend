@@ -5,8 +5,11 @@ import { asyncErrorHandler } from "../utils/asyncErrorHandler.js";
 import CustomError from "../utils/customError.js";
 import Inventory from "../models/inventory.model.js";
 import WarehouseStock from "../models/warehouse.model.js";
-import StorefrontInventory from "../models/storefrontInventory.model.js";
 import { createDateFilter } from "../utils/dateFilter.utils.js";
+import {
+  getPaginationParams,
+  buildPaginationMeta,
+} from "../utils/pagination.utils.js";
 
 export const createPurchase = asyncErrorHandler(async (req, res, next) => {
   const {
@@ -466,9 +469,7 @@ export const getAllPurchases = asyncErrorHandler(async (req, res, next) => {
   }
 
   // Pagination
-  const pageNum = parseInt(page);
-  const limitNum = parseInt(limit);
-  const skip = (pageNum - 1) * limitNum;
+  const { page: pageNum, limit: limitNum, skip } = getPaginationParams(req.query, 10);
 
   // Sort
   const sort = {};
@@ -510,17 +511,13 @@ export const getAllPurchases = asyncErrorHandler(async (req, res, next) => {
 
   // Get total count for pagination
   const total = await Purchasing.countDocuments(query);
+  const pagination = buildPaginationMeta(total, pageNum, limitNum);
 
   res.status(200).json({
     success: true,
     message: "All purchases retrieved successfully",
     data: purchasesWithTotalRemaining,
-    pagination: {
-      currentPage: pageNum,
-      totalPages: Math.ceil(total / limitNum),
-      totalItems: total,
-      itemsPerPage: limitNum,
-    },
+    pagination,
   });
 });
 

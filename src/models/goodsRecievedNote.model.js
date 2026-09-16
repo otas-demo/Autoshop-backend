@@ -249,44 +249,6 @@ goodsRecievedNoteSchema.statics.generateGRNNumber = async function () {
   return `${prefix}${sequence.toString().padStart(6, "0")}`;
 };
 
-// Static method to drop the unique index on purchasingId (one-time migration)
-// Call this once to remove the old unique constraint that prevents multiple GRNs per PO
-goodsRecievedNoteSchema.statics.dropPurchasingIdUniqueIndex =
-  async function () {
-    try {
-      const collection = this.collection;
-      const indexes = await collection.indexes();
-
-      // Find and drop the unique index on purchasingId if it exists
-      const uniqueIndex = indexes.find(
-        (index) =>
-          index.key && index.key.purchasingId === 1 && index.unique === true
-      );
-
-      if (uniqueIndex) {
-        await collection.dropIndex(uniqueIndex.name);
-        console.log(
-          `Dropped unique index on purchasingId: ${uniqueIndex.name}`
-        );
-        return true;
-      } else {
-        console.log(
-          "No unique index on purchasingId found. Index may have already been dropped."
-        );
-        return false;
-      }
-    } catch (error) {
-      // Index might not exist, which is fine
-      if (error.code === 27 || error.codeName === "IndexNotFound") {
-        console.log(
-          "Unique index on purchasingId does not exist (already removed)."
-        );
-        return false;
-      }
-      throw error;
-    }
-  };
-
 // Note: Warehouse stock updates are now handled by Transfer records
 // This method is deprecated - use Transfer model to update warehouse stock
 // GRN no longer has warehouseId field - all warehouse allocation is done via Transfer records

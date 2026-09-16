@@ -1,0 +1,133 @@
+import asyncErrorHandler from "../utils/asyncErrorHandler.js";
+import CustomError from "../utils/customError.js";
+import jwt from "jsonwebtoken";
+import util from "util";
+import Admin from "../models/admin.model.js";
+
+export const protect = asyncErrorHandler(async (req, res, next) => {
+  const testToken = req.headers.authorization;
+  let token;
+  if (testToken && testToken.startsWith("Bearer")) {
+    token = testToken.split(" ")[1];
+  }
+  if (!token) {
+    next(
+      new CustomError(401, "You are not logged in! Authentication required")
+    );
+    return;
+  }
+
+  const verifyAsync = util.promisify(jwt.verify);
+  const decodedToken = await verifyAsync(token, process.env.JWT_SECRET);
+
+  const { id, role } = decodedToken || {};
+
+  const validRoles = ["owner", "admin", "cashier", "warehouse"];
+  let user = null;
+  if (role && validRoles.includes(role)) {
+    user = await Admin.findById(id);
+  }
+
+  if (!user) {
+    const error = new CustomError(401, "The account does not exist");
+    next(error);
+    return;
+  }
+
+  if (user.softDeleted) {
+    const error = new CustomError(401, "You can't access this resource.");
+    next(error);
+    return;
+  }
+
+  // normalize on req.user for downstream middlewares/controllers
+  req.user = user;
+  next();
+});
+
+export const DEFAULT_ROLE_MODULES = {
+  owner: [
+    "sales",
+    "inventory",
+    "warehouse",
+    "purchasing",
+    "credits",
+    "expenses",
+    "reports",
+    "accounts",
+  ],
+  admin: [
+    "sales",
+    "inventory",
+    "warehouse",
+    "purchasing",
+    "credits",
+    "expenses",
+    "reports",
+  ],
+  cashier: ["sales", "credits", "expenses", "inventory"],
+  warehouse: [
+    "inventory",
+    "warehouse",
+    "purchasing",
+    "expenses",
+    "credits",
+    "reports",
+  ],
+};
+
+export const checkModulePermission = (...allowedModules) => {
+  return (req, res, next) => {
+    const user = req.user;
+    if (!user) {
+      return next(new CustomError(401, "Unauthorized. Authentication required."));
+    }
+
+    // Owner has unrestricted bypass for all modules
+    if (user.role === "owner") {
+      return next();
+    }
+
+    // Effective modules: user's custom modules or fallback to role defaults
+    const userModules =
+      Array.isArray(user.modules) && user.modules.length > 0
+        ? user.modules
+        : DEFAULT_ROLE_MODULES[user.role] || [];
+
+    const hasAccess = allowedModules.some((mod) => userModules.includes(mod));
+    if (!hasAccess) {
+      return next(
+        new CustomError(
+          403,
+          `Access denied. You do not have permission for module: [${allowedModules.join(
+            ", "
+          )}].`
+        )
+      );
+    }
+
+    next();
+  };
+};
+
+export const permissionGranted = (...allowedRoles) => {
+  return (req, res, next) => {
+    const role = req.user?.role;
+
+    if (!role) {
+      return next(
+        new CustomError(401, "Unauthorized. No role information available.")
+      );
+    }
+    if (!allowedRoles.includes(role)) {
+      return next(
+        new CustomError(
+          403,
+          `Access denied. Role '${role}' is not authorized to access this resource.`
+        )
+      );
+    }
+
+    next();
+  };
+};

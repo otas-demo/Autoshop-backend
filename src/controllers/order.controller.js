@@ -8,6 +8,14 @@ import CreditRecord from "../models/creditRecord.model.js";
 import { asyncErrorHandler } from "../utils/asyncErrorHandler.js";
 import CustomError from "../utils/customError.js";
 import { createDateFilter } from "../utils/dateFilter.utils.js";
+import {
+  getPaginationParams,
+  buildPaginationMeta,
+} from "../utils/pagination.utils.js";
+import {
+  deductStorefrontStockFIFO,
+  restoreStorefrontStock,
+} from "../services/storefrontStock.service.js";
 
 // Create new order with ACID properties and stock deduction
 export const createOrder = asyncErrorHandler(async (req, res, next) => {
@@ -275,65 +283,20 @@ export const createOrder = asyncErrorHandler(async (req, res, next) => {
 
           // 4. Validate stock availability and deduct stock (multi-batch aware, FIFO)
           for (const product of validatedProducts) {
-            // Fetch active batch records with available quantity for this product in this storefront (oldest first = FIFO)
-            const stockRecords = await StorefrontInventory.find(
-              {
-                inventoryId: product.inventoryId,
-                storefrontId: storefrontId,
-                quantity: { $gt: 0 },
-              },
-              null,
-              { session, sort: { createdAt: 1 } },
+            const inventoryItem = inventoryMap.get(
+              product.inventoryId.toString(),
             );
+            const productLabel = inventoryItem
+              ? `${inventoryItem.productCode} (${inventoryItem.productName})`
+              : product.inventoryId.toString();
 
-            if (!stockRecords || stockRecords.length === 0) {
-              const inventoryItem = inventoryMap.get(
-                product.inventoryId.toString(),
-              );
-              throw new CustomError(
-                400,
-                `Insufficient stock for product '${
-                  inventoryItem?.productCode || product.inventoryId
-                }' (${
-                  inventoryItem?.productName || "Unknown"
-                }). Available: 0, Requested: ${product.quantity}`,
-              );
-            }
-
-            // Sum total available quantity across all batches
-            const totalAvailable = stockRecords.reduce(
-              (sum, r) => sum + (r.quantity || 0),
-              0,
-            );
-
-            if (totalAvailable < product.quantity) {
-              const inventoryItem = inventoryMap.get(
-                product.inventoryId.toString(),
-              );
-              throw new CustomError(
-                400,
-                `Insufficient stock for product '${
-                  inventoryItem?.productCode || product.inventoryId
-                }' (${
-                  inventoryItem?.productName || "Unknown"
-                }). Available: ${totalAvailable}, Requested: ${
-                  product.quantity
-                }`,
-              );
-            }
-
-            // Deduct FIFO: consume oldest batches first, skip empty ones
-            let remaining = product.quantity;
-            for (const record of stockRecords) {
-              if (remaining <= 0) break;
-              const batchQty = record.quantity || 0;
-              if (batchQty <= 0) continue; // skip empty batches
-              const deduct = Math.min(batchQty, remaining);
-              record.quantity -= deduct;
-              record.lastUpdated = new Date();
-              await record.save({ session });
-              remaining -= deduct;
-            }
+            await deductStorefrontStockFIFO({
+              storefrontId,
+              inventoryId: product.inventoryId,
+              quantity: product.quantity,
+              session,
+              productLabel,
+            });
           }
 
           // 5. Create order with calculated values
@@ -571,13 +534,11 @@ export const getAllOrders = asyncErrorHandler(async (req, res, next) => {
   }
 
   // Handle pagination if page is provided
-  const pageNum = page !== undefined && page !== "" ? parseInt(page, 10) : null;
-  const limitNum = limit !== undefined && limit !== "" ? parseInt(limit, 10) : 10;
+  const { page: pageNum, limit: limitNum, skip, isPaginated } = getPaginationParams(req.query, 10);
 
-  if (pageNum && pageNum > 0) {
+  if (isPaginated) {
     const totalOrders = await Order.countDocuments(filter);
-    const totalPages = Math.ceil(totalOrders / limitNum);
-    const skip = (pageNum - 1) * limitNum;
+    const pagination = buildPaginationMeta(totalOrders, pageNum, limitNum);
 
     const orders = await Order.find(filter)
       .populate("storefrontId", "locationName locationCode")
@@ -592,14 +553,7 @@ export const getAllOrders = asyncErrorHandler(async (req, res, next) => {
       success: true,
       message: "Orders fetched successfully",
       data: orders,
-      pagination: {
-        currentPage: pageNum,
-        totalPages,
-        totalOrders,
-        limit: limitNum,
-        hasNextPage: pageNum < totalPages,
-        hasPrevPage: pageNum > 1,
-      },
+      pagination,
       summaryCounts,
     });
   }
@@ -1613,69 +1567,26 @@ export const updateEntireOrder = asyncErrorHandler(async (req, res, next) => {
 
         if (delta > 0) {
           // Additional quantity needed -> Deduct from StorefrontInventory (FIFO)
-          const stockRecords = await StorefrontInventory.find(
-            {
-              inventoryId: new mongoose.Types.ObjectId(idStr),
-              storefrontId: storefrontId,
-              quantity: { $gt: 0 },
-            },
-            null,
-            { session, sort: { createdAt: 1 } }
-          );
+          const invItem = inventoryMap.get(idStr);
+          const productLabel = invItem
+            ? `${invItem.productCode} (${invItem.productName})`
+            : idStr;
 
-          const totalAvailable = (stockRecords || []).reduce(
-            (sum, r) => sum + (r.quantity || 0),
-            0
-          );
-
-          if (totalAvailable < delta) {
-            const invItem = inventoryMap.get(idStr);
-            throw new CustomError(
-              400,
-              `Insufficient stock for product '${invItem?.productCode || idStr}' (${invItem?.productName || "Unknown"}). Available extra: ${totalAvailable}, Required extra: ${delta}`
-            );
-          }
-
-          let remaining = delta;
-          for (const record of stockRecords) {
-            if (remaining <= 0) break;
-            const batchQty = record.quantity || 0;
-            if (batchQty <= 0) continue;
-            const deduct = Math.min(batchQty, remaining);
-            record.quantity -= deduct;
-            record.lastUpdated = new Date();
-            await record.save({ session });
-            remaining -= deduct;
-          }
+          await deductStorefrontStockFIFO({
+            storefrontId,
+            inventoryId: idStr,
+            quantity: delta,
+            session,
+            productLabel,
+          });
         } else if (delta < 0) {
           // Quantity reduced -> Restore stock to StorefrontInventory
-          const returnQty = Math.abs(delta);
-          const stockRecord = await StorefrontInventory.findOne(
-            {
-              inventoryId: new mongoose.Types.ObjectId(idStr),
-              storefrontId: storefrontId,
-            },
-            null,
-            { session, sort: { createdAt: -1 } }
-          );
-
-          if (stockRecord) {
-            stockRecord.quantity += returnQty;
-            stockRecord.lastUpdated = new Date();
-            await stockRecord.save({ session });
-          } else {
-            await StorefrontInventory.create(
-              [
-                {
-                  inventoryId: new mongoose.Types.ObjectId(idStr),
-                  storefrontId: storefrontId,
-                  quantity: returnQty,
-                  lastUpdated: new Date(),
-                },
-              ],
-              { session }
-            );
-          }
+          await restoreStorefrontStock({
+            storefrontId,
+            inventoryId: idStr,
+            quantity: Math.abs(delta),
+            session,
+          });
         }
       }
 
