@@ -367,7 +367,7 @@ export const getWarehouseStockById = asyncErrorHandler(
     const stock = await WarehouseStock.findById(id)
       .populate(
         "inventoryId",
-        "productName productCode SKU category buyingPrice sellingPrice barcode status",
+        "productName productCode SKU category buyingPrice sellingPrice barcode status unitOfMeasure uomConversions",
       )
       .populate("warehouseId", "locationName locationCode locationAddress");
 
@@ -475,7 +475,7 @@ export const updateWarehouseStockQuantity = asyncErrorHandler(
       )
         .populate(
           "inventoryId",
-          "productName productCode SKU category barcode status",
+          "productName productCode SKU category barcode status unitOfMeasure uomConversions",
         )
         .populate("warehouseId", "locationName locationCode");
 

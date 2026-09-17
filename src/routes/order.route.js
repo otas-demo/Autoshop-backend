@@ -9,6 +9,7 @@ import {
   addOrderItems,
   removeOrderItems,
   hardDeleteOrder,
+  updateOrder,
 } from "../controllers/order.controller.js";
 
 const router = express.Router();
@@ -75,5 +76,13 @@ router.patch(
 
 // Hard delete order
 router.delete("/order/:orderId", hardDeleteOrder);
+
+// Update entire order
+router.patch(
+  "/order/:orderId",
+  protect,
+  permissionGranted("owner", "admin", "cashier"),
+  updateOrder
+);
 
 export default router;

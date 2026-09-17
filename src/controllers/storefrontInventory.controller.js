@@ -384,7 +384,7 @@ export const getStorefrontInventoryById = asyncErrorHandler(
     const stock = await StorefrontInventory.findById(id)
       .populate(
         "inventoryId",
-        "productName productCode SKU category buyingPrice sellingPrice wholesalePrices barcode status",
+        "productName productCode SKU category buyingPrice sellingPrice wholesalePrices barcode status unitOfMeasure uomConversions",
       )
       .populate("storefrontId", "locationName locationCode locationAddress");
 
@@ -494,7 +494,7 @@ export const updateStorefrontInventoryQuantity = asyncErrorHandler(
       )
         .populate(
           "inventoryId",
-          "productName productCode SKU category wholesalePrices barcode status",
+          "productName productCode SKU category wholesalePrices barcode status unitOfMeasure uomConversions",
         )
         .populate("storefrontId", "locationName locationCode");
 

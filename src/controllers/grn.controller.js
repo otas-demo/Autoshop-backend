@@ -426,7 +426,7 @@ export const createGRN = asyncErrorHandler(async (req, res, next) => {
   await newGRN.populate("purchasingId", "status totalAmount");
   await newGRN.populate(
     "lineItems.inventoryId",
-    "productName productCode SKU sellingPrice"
+    "productName productCode SKU sellingPrice unitOfMeasure"
   );
 
   res.status(201).json({
@@ -509,7 +509,7 @@ export const getAllGRN = asyncErrorHandler(async (req, res, next) => {
     })
     .populate(
       "lineItems.inventoryId",
-      "productName productCode SKU buyingPrice sellingPrice"
+      "productName productCode SKU buyingPrice sellingPrice unitOfMeasure"
     )
     .sort(sort)
     .skip(skip)
@@ -554,7 +554,7 @@ export const getGRNById = asyncErrorHandler(async (req, res, next) => {
     })
     .populate(
       "lineItems.inventoryId",
-      "productName productCode SKU category buyingPrice sellingPrice"
+      "productName productCode SKU category buyingPrice sellingPrice unitOfMeasure"
     );
 
   if (!grn) {
@@ -718,7 +718,7 @@ export const updateGRNLineItems = asyncErrorHandler(async (req, res, next) => {
   });
   await grn.populate(
     "lineItems.inventoryId",
-    "productName productCode SKU category buyingPrice sellingPrice"
+    "productName productCode SKU category buyingPrice sellingPrice unitOfMeasure"
   );
 
   res.status(200).json({

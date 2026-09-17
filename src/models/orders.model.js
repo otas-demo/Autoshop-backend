@@ -21,6 +21,18 @@ const orderProductsSchema = new mongoose.Schema({
     min: [0, "Buying price cannot be negative"],
     default: null,
   },
+  saleUnit: {
+    type: String,
+    default: null,
+  },
+  saleQuantity: {
+    type: Number,
+    default: null,
+  },
+  salePrice: {
+    type: Number,
+    default: null,
+  },
 });
 
 const orderSchema = new mongoose.Schema(

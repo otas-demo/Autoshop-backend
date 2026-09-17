@@ -180,18 +180,19 @@ export const createOrder = asyncErrorHandler(async (req, res, next) => {
           }
 
           // 2. Validate all inventory items exist and get their selling prices
-          const inventoryIds = ordersProducts.map(
-            (p) => new mongoose.Types.ObjectId(p.inventoryId),
+          const uniqueInventoryIdsStr = [...new Set(ordersProducts.map((p) => p.inventoryId.toString()))];
+          const uniqueInventoryIds = uniqueInventoryIdsStr.map(
+            (id) => new mongoose.Types.ObjectId(id)
           );
 
           const inventoryItems = await Inventory.find({
-            _id: { $in: inventoryIds },
+            _id: { $in: uniqueInventoryIds },
           }).session(session);
 
-          if (inventoryItems.length !== inventoryIds.length) {
+          if (inventoryItems.length !== uniqueInventoryIds.length) {
             const foundIds = inventoryItems.map((item) => item._id.toString());
-            const missingIds = inventoryIds.filter(
-              (id) => !foundIds.includes(id.toString()),
+            const missingIds = uniqueInventoryIdsStr.filter(
+              (id) => !foundIds.includes(id),
             );
             throw new CustomError(
               404,
@@ -208,6 +209,8 @@ export const createOrder = asyncErrorHandler(async (req, res, next) => {
           // 3. Prepare order products with unitPrice from current sellingPrice (snapshot)
           const validatedProducts = [];
           let calculatedSubTotal = 0;
+
+
 
           for (const product of ordersProducts) {
             const inventoryId = new mongoose.Types.ObjectId(
@@ -254,6 +257,9 @@ export const createOrder = asyncErrorHandler(async (req, res, next) => {
               quantity: product.quantity,
               unitPrice, // Snapshot of current selling price
               buyingPrice: inventoryItem.buyingPrice || 0, // Snapshot of current buying price
+              saleUnit: product.saleUnit || null,
+              saleQuantity: product.saleQuantity ?? null,
+              salePrice: product.salePrice ?? null,
             });
           }
 
@@ -274,10 +280,19 @@ export const createOrder = asyncErrorHandler(async (req, res, next) => {
           }
 
           // 4. Validate stock availability and deduct stock
-          for (const product of validatedProducts) {
+          const requiredStockMap = new Map();
+          for (const product of ordersProducts) {
+            const id = product.inventoryId.toString();
+            const qty = product.quantity;
+            const conversionFactor = product.conversionFactor || 1;
+            const baseQty = qty * conversionFactor;
+            requiredStockMap.set(id, (requiredStockMap.get(id) || 0) + baseQty);
+          }
+
+          for (const [inventoryIdStr, totalRequiredBaseQty] of requiredStockMap.entries()) {
             const stockRecord = await StorefrontInventory.findOne(
               {
-                inventoryId: product.inventoryId,
+                inventoryId: new mongoose.Types.ObjectId(inventoryIdStr),
                 storefrontId: storefrontId,
               },
               null,
@@ -285,38 +300,34 @@ export const createOrder = asyncErrorHandler(async (req, res, next) => {
             );
 
             if (!stockRecord) {
-              const inventoryItem = inventoryMap.get(
-                product.inventoryId.toString(),
-              );
+              const inventoryItem = inventoryMap.get(inventoryIdStr);
               throw new CustomError(
                 404,
                 `Stock record not found for product '${
-                  inventoryItem?.productCode || product.inventoryId
+                  inventoryItem?.productCode || inventoryIdStr
                 }' in storefront`,
               );
             }
 
             // Check stock availability
             const availableQuantity = stockRecord.quantity || 0;
-            if (availableQuantity < product.quantity) {
-              const inventoryItem = inventoryMap.get(
-                product.inventoryId.toString(),
-              );
+            if (availableQuantity < totalRequiredBaseQty) {
+              const inventoryItem = inventoryMap.get(inventoryIdStr);
               throw new CustomError(
                 400,
                 `Insufficient stock for product '${
-                  inventoryItem?.productCode || product.inventoryId
+                  inventoryItem?.productCode || inventoryIdStr
                 }' (${
                   inventoryItem?.productName || "Unknown"
                 }). Available: ${availableQuantity}, Requested: ${
-                  product.quantity
+                  totalRequiredBaseQty
                 }`,
               );
             }
 
             // Deduct stock - modify document directly and save with session
             // This follows the pattern in StorefrontInventory model's removeStock method
-            stockRecord.quantity -= product.quantity;
+            stockRecord.quantity -= totalRequiredBaseQty;
             stockRecord.lastUpdated = new Date();
             await stockRecord.save({ session });
           }
@@ -1368,4 +1379,387 @@ export const hardDeleteOrder = asyncErrorHandler(async (req, res, next) => {
     message: "Order hard deleted successfully",
     data: deletedOrder,
   });
+});
+
+// Update an entire order (replace products, adjust stock, update financials)
+export const updateOrder = asyncErrorHandler(async (req, res, next) => {
+  const { orderId } = req.params;
+  const {
+    ordersProducts,
+    subTotal,
+    tax,
+    discount,
+    finalAmount,
+    paidAmount,
+    paymentType,
+    paymentMethod,
+    creditPersonId,
+    note,
+  } = req.body;
+
+  // Validate orderId
+  if (!mongoose.Types.ObjectId.isValid(orderId)) {
+    return next(new CustomError(400, "Invalid order ID format"));
+  }
+
+  // Validate ordersProducts if provided
+  if (ordersProducts !== undefined) {
+    if (!Array.isArray(ordersProducts) || ordersProducts.length === 0) {
+      return next(
+        new CustomError(
+          400,
+          "ordersProducts must be a non-empty array when provided",
+        ),
+      );
+    }
+
+    for (let i = 0; i < ordersProducts.length; i++) {
+      const product = ordersProducts[i];
+
+      if (!product.inventoryId) {
+        return next(
+          new CustomError(
+            400,
+            `Product at index ${i}: Inventory ID is required`,
+          ),
+        );
+      }
+
+      if (!mongoose.Types.ObjectId.isValid(product.inventoryId)) {
+        return next(
+          new CustomError(
+            400,
+            `Product at index ${i}: Invalid inventory ID format`,
+          ),
+        );
+      }
+
+      if (!product.quantity || product.quantity < 1) {
+        return next(
+          new CustomError(
+            400,
+            `Product at index ${i}: Quantity must be at least 1`,
+          ),
+        );
+      }
+    }
+  }
+
+  // Validate numeric fields if provided
+  if (tax !== undefined && tax < 0) {
+    return next(new CustomError(400, "Tax cannot be negative"));
+  }
+
+  if (discount !== undefined && discount < 0) {
+    return next(new CustomError(400, "Discount cannot be negative"));
+  }
+
+  if (finalAmount !== undefined && finalAmount < 0) {
+    return next(new CustomError(400, "Final amount cannot be negative"));
+  }
+
+  if (paidAmount !== undefined && paidAmount < 0) {
+    return next(new CustomError(400, "Paid amount cannot be negative"));
+  }
+
+  // Validate paymentType if provided
+  if (paymentType !== undefined) {
+    const validPaymentTypes = ["credit", "paid"];
+    if (!validPaymentTypes.includes(paymentType)) {
+      return next(
+        new CustomError(
+          400,
+          `Invalid payment type. Allowed values: ${validPaymentTypes.join(", ")}`,
+        ),
+      );
+    }
+  }
+
+  // Validate creditPersonId if provided
+  if (creditPersonId !== undefined && creditPersonId !== null) {
+    if (!mongoose.Types.ObjectId.isValid(creditPersonId)) {
+      return next(new CustomError(400, "Invalid credit person ID format"));
+    }
+  }
+
+  // Start MongoDB session for transaction
+  const session = await mongoose.startSession();
+
+  try {
+    await session.withTransaction(async () => {
+      // 1. Fetch existing order
+      const order = await Order.findById(orderId).session(session);
+
+      if (!order) {
+        throw new CustomError(404, "Order not found");
+      }
+
+      if (order.isDeleted) {
+        throw new CustomError(400, "Cannot update deleted order");
+      }
+
+      if (order.orderStatus !== "completed") {
+        throw new CustomError(
+          400,
+          `Cannot update order with status '${order.orderStatus}'. Only completed orders can be modified.`,
+        );
+      }
+
+      // 2. Handle ordersProducts replacement with stock adjustments
+      if (ordersProducts !== undefined) {
+        // 2a. Restore stock for ALL old order items
+        for (const oldItem of order.ordersProducts) {
+          const stockRecord = await StorefrontInventory.findOne(
+            {
+              inventoryId: oldItem.inventoryId,
+              storefrontId: order.storefrontId,
+            },
+            null,
+            { session },
+          );
+
+          if (stockRecord) {
+            stockRecord.quantity += oldItem.quantity;
+            stockRecord.lastUpdated = new Date();
+            await stockRecord.save({ session });
+          } else {
+            // Create stock record if it was somehow deleted
+            await StorefrontInventory.create(
+              [
+                {
+                  inventoryId: oldItem.inventoryId,
+                  storefrontId: order.storefrontId,
+                  quantity: oldItem.quantity,
+                  lastUpdated: new Date(),
+                },
+              ],
+              { session },
+            );
+          }
+        }
+
+        // 2b. Validate all new inventory items exist
+        const uniqueInventoryIdsStr = [
+          ...new Set(ordersProducts.map((p) => p.inventoryId.toString())),
+        ];
+        const uniqueInventoryIds = uniqueInventoryIdsStr.map(
+          (id) => new mongoose.Types.ObjectId(id),
+        );
+
+        const inventoryItems = await Inventory.find({
+          _id: { $in: uniqueInventoryIds },
+        }).session(session);
+
+        if (inventoryItems.length !== uniqueInventoryIds.length) {
+          const foundIds = inventoryItems.map((item) => item._id.toString());
+          const missingIds = uniqueInventoryIdsStr.filter(
+            (id) => !foundIds.includes(id),
+          );
+          throw new CustomError(
+            404,
+            `Inventory items not found: ${missingIds.join(", ")}`,
+          );
+        }
+
+        // Map inventory items by ID for easy lookup
+        const inventoryMap = new Map();
+        inventoryItems.forEach((item) => {
+          inventoryMap.set(item._id.toString(), item);
+        });
+
+        // 2c. Build validated products and aggregate stock requirements
+        const validatedProducts = [];
+        let calculatedSubTotal = 0;
+        const requiredStockMap = new Map();
+
+        for (const product of ordersProducts) {
+          const inventoryId = new mongoose.Types.ObjectId(product.inventoryId);
+          const inventoryItem = inventoryMap.get(inventoryId.toString());
+
+          if (!inventoryItem) {
+            throw new CustomError(
+              404,
+              `Inventory item not found: ${product.inventoryId}`,
+            );
+          }
+
+          if (
+            inventoryItem.sellingPrice === undefined ||
+            inventoryItem.sellingPrice === null
+          ) {
+            throw new CustomError(
+              400,
+              `Product '${inventoryItem.productCode}' (${inventoryItem.productName}) does not have a selling price set`,
+            );
+          }
+
+          // Determine unitPrice with wholesale tier support
+          let unitPrice = inventoryItem.sellingPrice;
+          if (inventoryItem.wholesalePrices?.length > 0) {
+            const sorted = [...inventoryItem.wholesalePrices].sort(
+              (a, b) => b.quantity - a.quantity,
+            );
+            const tier = sorted.find((wp) => product.quantity >= wp.quantity);
+            if (tier) unitPrice = tier.price;
+          }
+
+          const productSubTotal = product.quantity * unitPrice;
+          calculatedSubTotal += productSubTotal;
+
+          validatedProducts.push({
+            inventoryId,
+            quantity: product.quantity,
+            unitPrice,
+            buyingPrice: inventoryItem.buyingPrice || 0,
+            saleUnit: product.saleUnit || null,
+            saleQuantity: product.saleQuantity ?? null,
+            salePrice: product.salePrice ?? null,
+          });
+
+          // Aggregate stock requirements per unique inventoryId
+          const idStr = inventoryId.toString();
+          const conversionFactor = product.conversionFactor || 1;
+          const baseQty = product.quantity * conversionFactor;
+          requiredStockMap.set(
+            idStr,
+            (requiredStockMap.get(idStr) || 0) + baseQty,
+          );
+        }
+
+        // 2d. Validate stock availability and deduct new stock
+        for (const [inventoryIdStr, totalRequiredBaseQty] of requiredStockMap.entries()) {
+          const stockRecord = await StorefrontInventory.findOne(
+            {
+              inventoryId: new mongoose.Types.ObjectId(inventoryIdStr),
+              storefrontId: order.storefrontId,
+            },
+            null,
+            { session },
+          );
+
+          if (!stockRecord) {
+            const inventoryItem = inventoryMap.get(inventoryIdStr);
+            throw new CustomError(
+              404,
+              `Stock record not found for product '${inventoryItem?.productCode || inventoryIdStr}' in storefront`,
+            );
+          }
+
+          const availableQuantity = stockRecord.quantity || 0;
+          if (availableQuantity < totalRequiredBaseQty) {
+            const inventoryItem = inventoryMap.get(inventoryIdStr);
+            throw new CustomError(
+              400,
+              `Insufficient stock for product '${inventoryItem?.productCode || inventoryIdStr}' (${inventoryItem?.productName || "Unknown"}). Available: ${availableQuantity}, Requested: ${totalRequiredBaseQty}`,
+            );
+          }
+
+          stockRecord.quantity -= totalRequiredBaseQty;
+          stockRecord.lastUpdated = new Date();
+          await stockRecord.save({ session });
+        }
+
+        // 2e. Replace order products
+        order.ordersProducts = validatedProducts;
+
+        // Update subTotal if not explicitly provided
+        if (subTotal === undefined || subTotal === null) {
+          order.subTotal = calculatedSubTotal;
+        }
+      }
+
+      // 3. Update financial fields if provided
+      if (subTotal !== undefined && subTotal !== null) {
+        order.subTotal = subTotal;
+      }
+
+      if (tax !== undefined && tax !== null) {
+        order.tax = tax;
+      }
+
+      if (discount !== undefined && discount !== null) {
+        order.discount = discount;
+      }
+
+      if (finalAmount !== undefined && finalAmount !== null) {
+        order.finalAmount = finalAmount;
+      }
+
+      if (paidAmount !== undefined && paidAmount !== null) {
+        order.paidAmount = paidAmount;
+      }
+
+      if (paymentType !== undefined) {
+        order.paymentType = paymentType;
+      }
+
+      if (paymentMethod !== undefined) {
+        order.paymentMethod = paymentMethod;
+      }
+
+      // 4. Update credit person if provided
+      if (creditPersonId !== undefined) {
+        if (creditPersonId === null) {
+          order.creditPersonId = null;
+        } else {
+          const creditPerson =
+            await CreditPerson.findById(creditPersonId).session(session);
+          if (!creditPerson) {
+            throw new CustomError(404, "Credit person not found");
+          }
+          if (creditPerson.blacklist) {
+            throw new CustomError(
+              400,
+              `Cannot assign blacklisted credit person: ${creditPerson.blacklistReason || "No reason provided"}`,
+            );
+          }
+          order.creditPersonId = new mongoose.Types.ObjectId(creditPersonId);
+        }
+      }
+
+      // 5. Update note if provided
+      if (note !== undefined) {
+        order.note = note;
+      }
+
+      // 6. Save the updated order
+      await order.save({ session });
+
+      // 7. Populate references for response
+      await order.populate("storefrontId", "locationName locationCode");
+      await order.populate(
+        "ordersProducts.inventoryId",
+        "productName productCode SKU",
+      );
+      await order.populate("creditPersonId", "name phone address");
+      await order.populate("soldBy", "name role");
+
+      // 8. Send response
+      res.status(200).json({
+        success: true,
+        message: "Order updated successfully",
+        data: order,
+      });
+    });
+  } catch (error) {
+    if (error instanceof CustomError) {
+      return next(error);
+    }
+
+    if (error.name === "ValidationError") {
+      const errors = Object.values(error.errors).map((val) => val.message);
+      return next(
+        new CustomError(400, `Validation error: ${errors.join(". ")}`),
+      );
+    }
+
+    console.error("Update order error:", error);
+    const errorMessage =
+      error?.message || String(error) || "Unknown error occurred";
+    return next(
+      new CustomError(500, `Failed to update order: ${errorMessage}`),
+    );
+  } finally {
+    await session.endSession();
+  }
 });

@@ -349,8 +349,8 @@ export const getAllPurchases = asyncErrorHandler(async (req, res, next) => {
   const purchasesWithTotalRemaining = purchases.map((purchase) => {
     const purchaseObj = purchase.toObject({ virtuals: true });
 
-    // Calculate totalRemainingQuantity by summing all products' remainingQuantity
-    // Use virtual field if available, otherwise calculate manually
+    const breakdownMap = {};
+
     const totalRemainingQuantity = purchase.products.reduce(
       (total, product) => {
         // Try to use virtual field first, fallback to manual calculation
@@ -358,15 +358,34 @@ export const getAllPurchases = asyncErrorHandler(async (req, res, next) => {
           product.remainingQuantity !== undefined
             ? product.remainingQuantity
             : (product.baseQuantity || ((product.purchaseQuantity || 0) * (product.factor || 1))) - (product.receivedQuantity || 0);
-        return total + Math.max(0, remainingQty); // Ensure non-negative
+        
+        const finalRemaining = Math.max(0, remainingQty);
+
+        if (finalRemaining > 0) {
+          const uomQty = finalRemaining / (product.factor || 1);
+          const unit = product.unit || "piece";
+          if (breakdownMap[unit]) {
+            breakdownMap[unit] += uomQty;
+          } else {
+            breakdownMap[unit] = uomQty;
+          }
+        }
+
+        return total + finalRemaining;
       },
       0
     );
+
+    const totalRemainingBreakdown = Object.keys(breakdownMap).map(unit => ({
+      unit,
+      quantity: Number(breakdownMap[unit].toFixed(2))
+    }));
 
     // Add totalRemainingQuantity after products section
     return {
       ...purchaseObj,
       totalRemainingQuantity,
+      totalRemainingBreakdown,
     };
   });
 
