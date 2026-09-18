@@ -1404,7 +1404,7 @@
                 }
               ]
             },
-            "description": "Add items to an existing order. Requires owner role."
+            "description": "Add items to an existing order. Requires owner, admin, or cashier role."
           },
           "response": []
         },
@@ -1432,7 +1432,7 @@
                 }
               ]
             },
-            "description": "Remove items from an existing order. Requires owner role."
+            "description": "Remove items from an existing order. Requires owner, admin, or cashier role."
           },
           "response": []
         },

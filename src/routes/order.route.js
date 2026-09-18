@@ -61,7 +61,7 @@ router.patch(
 router.patch(
   "/order/:orderId/items/add",
   protect,
-  permissionGranted("owner"),
+  permissionGranted("owner", "admin", "cashier"),
   addOrderItems
 );
 
@@ -69,7 +69,7 @@ router.patch(
 router.patch(
   "/order/:orderId/items/remove",
   protect,
-  permissionGranted("owner"),
+  permissionGranted("owner", "admin", "cashier"),
   removeOrderItems
 );
 

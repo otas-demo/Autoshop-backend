@@ -77,8 +77,8 @@
 | `GET` | `/order/storefront/:storefrontId` | `owner`, `admin`, `cashier` | Get sales orders filtered by specific Storefront location. |
 | `PATCH` | `/order/:orderId/credit-person` | `owner`, `admin`, `cashier` | Attach or update Credit Customer on a credit order. |
 | `PATCH` | `/order/:orderId/paid-amount` | `owner` | Manually update paid amount on an existing order. |
-| `PATCH` | `/order/:orderId/items/add` | `owner` | Append additional product items to an existing order. |
-| `PATCH` | `/order/:orderId/items/remove` | `owner` | Remove product items from an existing order and refund stock. |
+| `PATCH` | `/order/:orderId/items/add` | `owner`, `admin`, `cashier` | Append additional product items to an existing order. |
+| `PATCH` | `/order/:orderId/items/remove` | `owner`, `admin`, `cashier` | Remove product items from an existing order and refund stock. |
 | `DELETE` | `/order/:orderId` | `owner` | Hard delete an order record from database. |
 
 ---
