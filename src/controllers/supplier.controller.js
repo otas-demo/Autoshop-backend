@@ -70,7 +70,10 @@ export const getAllSupplierProfiles = asyncErrorHandler(
     // If includeDeleted is true and isDeleted is not provided, don't filter by isDeleted (show all)
 
     if (search) {
-      query.supplierName = { $regex: search, $options: "i" };
+      query.$or = [
+        { supplierName: { $regex: search, $options: "i" } },
+        { contactNumber: { $regex: search, $options: "i" } },
+      ];
     }
     let suppliers = await SupplierProfile.find(query)
       .sort(sort)
