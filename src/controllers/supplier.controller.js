@@ -45,15 +45,23 @@ export const getAllSupplierProfiles = asyncErrorHandler(
   async (req, res, next) => {
     const {
       page = 1,
-      limit = 10,
+      limit,
       search,
       sortBy = "createdAt",
       sortOrder = "desc",
       includeDeleted = false,
       isDeleted,
     } = req.query;
-    const pageNum = parseInt(page);
-    const limitNum = parseInt(limit);
+
+    const hasPagination =
+      (req.query.page !== undefined && req.query.page !== "") ||
+      (req.query.limit !== undefined &&
+        req.query.limit !== "" &&
+        req.query.limit !== "0" &&
+        req.query.limit !== "all");
+
+    const pageNum = parseInt(page) || 1;
+    const limitNum = parseInt(limit) || 10;
     const skip = (pageNum - 1) * limitNum;
     const sort = {};
     sort[sortBy] = sortOrder === "asc" ? 1 : -1;
@@ -75,20 +83,23 @@ export const getAllSupplierProfiles = asyncErrorHandler(
         { contactNumber: { $regex: search, $options: "i" } },
       ];
     }
-    let suppliers = await SupplierProfile.find(query)
-      .sort(sort)
-      .skip(skip)
-      .limit(limitNum);
+
+    let suppliersQuery = SupplierProfile.find(query).sort(sort);
+    if (hasPagination) {
+      suppliersQuery = suppliersQuery.skip(skip).limit(limitNum);
+    }
+    let suppliers = await suppliersQuery;
     let total = await SupplierProfile.countDocuments(query);
+
     res.status(200).json({
       success: true,
       message: "Supplier profiles retrieved successfully",
       data: suppliers,
       pagination: {
-        currentPage: pageNum,
-        totalPages: Math.ceil(total / limitNum),
+        currentPage: hasPagination ? pageNum : 1,
+        totalPages: hasPagination ? Math.ceil(total / limitNum) : 1,
         totalItems: total,
-        itemsPerPage: limitNum,
+        itemsPerPage: hasPagination ? limitNum : total,
       },
     });
   }
