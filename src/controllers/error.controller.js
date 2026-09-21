@@ -70,6 +70,15 @@ const prodErrors = (res, error) => {
 };
 
 export const globalErrorHandler = (error, req, res, next) => {
+  // Normalize known database errors into user-friendly operational errors
+  if (error.code === 11000) {
+    error = duplicateKeyErrorHandler(error);
+  } else if (error.name === "CastError") {
+    error = castErrorHandler(error);
+  } else if (error.name === "ValidationError") {
+    error = validationErrorHandler(error);
+  }
+
   error.statusCode = error.statusCode || 500;
   error.success = error.success !== undefined ? error.success : false;
 
@@ -89,7 +98,7 @@ export const globalErrorHandler = (error, req, res, next) => {
   }
 
   if (process.env.NODE_ENV === "development") {
-    // In development, we want all the juicy details
+    // In development, return structured error details
     devErrors(res, error);
   } else if (process.env.NODE_ENV === "production") {
     // In production, transform specific technical errors into CustomErrors

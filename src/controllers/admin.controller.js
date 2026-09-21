@@ -15,8 +15,20 @@ export const signup = asyncErrorHandler(async (req, res, next) => {
     return next(new CustomError(400, "Passwords do not match."));
   }
 
+  const trimmedName = name.trim();
+  const existingAdmin = await Admin.findOne({ name: trimmedName });
+  if (existingAdmin) {
+    return next(
+      new CustomError(
+        400,
+        `The account name "${trimmedName}" is already in use. Please choose another name.`,
+        "DUPLICATE_KEY_ERROR"
+      )
+    );
+  }
+
   const admin = await Admin.create({
-    name,
+    name: trimmedName,
     password,
     confirmPassword,
     role,
@@ -255,7 +267,24 @@ export const updateUser = asyncErrorHandler(async (req, res, next) => {
 
   const updateFields = {};
   if (name !== undefined) {
-    updateFields.name = name;
+    const trimmedName = name.trim();
+    if (!trimmedName) {
+      return next(new CustomError(400, "Account name cannot be empty."));
+    }
+    const existingAdmin = await Admin.findOne({
+      name: trimmedName,
+      _id: { $ne: accountId },
+    });
+    if (existingAdmin) {
+      return next(
+        new CustomError(
+          400,
+          `The account name "${trimmedName}" is already in use. Please choose another name.`,
+          "DUPLICATE_KEY_ERROR"
+        )
+      );
+    }
+    updateFields.name = trimmedName;
   }
   if (role !== undefined) {
     updateFields.role = role;
