@@ -902,8 +902,8 @@ export const addOrderItems = asyncErrorHandler(async (req, res, next) => {
         inventoryMap.set(item._id.toString(), item);
       });
 
-      // 4. Validate all items and check stock availability before processing
-      const stockRecordsMap = new Map();
+      // 4. Validate all items (inventory checks) and aggregate stock requirements
+      const requiredStockMap = new Map();
       for (const item of items) {
         const inventoryId = new mongoose.Types.ObjectId(item.inventoryId);
         const inventoryItem = inventoryMap.get(inventoryId.toString());
@@ -932,10 +932,22 @@ export const addOrderItems = asyncErrorHandler(async (req, res, next) => {
           );
         }
 
-        // Check stock availability
+        // Aggregate total required quantity per inventoryId
+        const idStr = inventoryId.toString();
+        requiredStockMap.set(
+          idStr,
+          (requiredStockMap.get(idStr) || 0) + item.quantity,
+        );
+      }
+
+      // 4a. Validate stock availability BEFORE any deduction
+      const stockRecordsMap = new Map();
+      for (const [inventoryIdStr, totalRequiredQty] of requiredStockMap.entries()) {
+        const inventoryItem = inventoryMap.get(inventoryIdStr);
+
         const stockRecord = await StorefrontInventory.findOne(
           {
-            inventoryId: inventoryId,
+            inventoryId: new mongoose.Types.ObjectId(inventoryIdStr),
             storefrontId: order.storefrontId,
           },
           null,
@@ -949,20 +961,20 @@ export const addOrderItems = asyncErrorHandler(async (req, res, next) => {
           );
         }
 
-        // Check stock availability - stock must be >= quantity to add
+        // Check stock BEFORE modifying quantity
         const availableQuantity = stockRecord.quantity || 0;
-        if (availableQuantity < item.quantity) {
+        if (availableQuantity < totalRequiredQty) {
           throw new CustomError(
             400,
-            `Insufficient stock for product '${inventoryItem.productCode}' (${inventoryItem.productName}). Available: ${availableQuantity}, Requested: ${item.quantity}`,
+            `Insufficient stock for product '${inventoryItem.productCode}' (${inventoryItem.productName}). Available: ${availableQuantity}, Requested: ${totalRequiredQty}`,
           );
         }
 
-        // Store stock record for later use
-        stockRecordsMap.set(inventoryId.toString(), stockRecord);
+        // Store stock record for deduction after all validations pass
+        stockRecordsMap.set(inventoryIdStr, stockRecord);
       }
 
-      // 5. Process all items - add to order and deduct stock
+      // 5. All validations passed — now process items and deduct stock
       for (const item of items) {
         const inventoryId = new mongoose.Types.ObjectId(item.inventoryId);
         const inventoryItem = inventoryMap.get(inventoryId.toString());
@@ -972,7 +984,6 @@ export const addOrderItems = asyncErrorHandler(async (req, res, next) => {
           const tier = sorted.find((wp) => item.quantity >= wp.quantity);
           if (tier) unitPrice = tier.price;
         }
-        const stockRecord = stockRecordsMap.get(inventoryId.toString());
 
         // Check if item already exists in order
         const existingItemIndex = order.ordersProducts.findIndex(
@@ -992,9 +1003,12 @@ export const addOrderItems = asyncErrorHandler(async (req, res, next) => {
             buyingPrice: inventoryItem.buyingPrice || 0, // Snapshot of current buying price
           });
         }
+      }
 
-        // Deduct stock
-        stockRecord.quantity -= item.quantity;
+      // Deduct stock for each unique inventoryId (after all order items are processed)
+      for (const [inventoryIdStr, totalRequiredQty] of requiredStockMap.entries()) {
+        const stockRecord = stockRecordsMap.get(inventoryIdStr);
+        stockRecord.quantity -= totalRequiredQty;
         stockRecord.lastUpdated = new Date();
         await stockRecord.save({ session });
       }
