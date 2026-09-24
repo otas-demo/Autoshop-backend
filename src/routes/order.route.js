@@ -9,6 +9,7 @@ import {
   addOrderItems,
   removeOrderItems,
   hardDeleteOrder,
+  updateEntireOrder,
 } from "../controllers/order.controller.js";
 
 const router = express.Router();
@@ -33,6 +34,13 @@ router.get(
   protect,
   permissionGranted("owner", "admin", "cashier"),
   getOrders
+);
+// Update entire order (full POS-style edit)
+router.patch(
+  "/order/:orderId",
+  protect,
+  permissionGranted("owner", "admin", "cashier"),
+  updateEntireOrder
 );
 router.get(
   "/order/storefront/:storefrontId",
