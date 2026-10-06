@@ -530,7 +530,10 @@ export const getAllOrders = asyncErrorHandler(async (req, res, next) => {
 
   const orders = await Order.find(filter)
     .populate("storefrontId", "locationName locationCode")
-    .populate("ordersProducts.inventoryId", "productName productCode SKU")
+    .populate(
+      "ordersProducts.inventoryId",
+      "productName productCode SKU category buyingPrice sellingPrice wholesalePrices unitOfMeasure status"
+    )
     .populate("creditPersonId", "name phone address")
     .populate("soldBy", "name role")
     .sort({ createdAt: -1 });
@@ -549,7 +552,10 @@ export const getOrders = asyncErrorHandler(async (req, res, next) => {
   }
   const order = await Order.findOne({ _id: orderId, isDeleted: false })
     .populate("storefrontId", "locationName locationCode")
-    .populate("ordersProducts.inventoryId", "productName productCode SKU")
+    .populate(
+      "ordersProducts.inventoryId",
+      "productName productCode SKU category buyingPrice sellingPrice wholesalePrices unitOfMeasure status"
+    )
     .populate("creditPersonId", "name phone address")
     .populate("soldBy", "name role");
 
@@ -777,7 +783,10 @@ export const getOrdersByStorefrontId = asyncErrorHandler(
     })
       .sort({ createdAt: -1 }) // Sort by newest first
       .populate("storefrontId", "locationName locationCode")
-      .populate("ordersProducts.inventoryId", "productName productCode SKU")
+      .populate(
+        "ordersProducts.inventoryId",
+        "productName productCode SKU category buyingPrice sellingPrice wholesalePrices unitOfMeasure status"
+      )
       .populate("creditPersonId", "name phone address")
       .populate("soldBy", "name role");
 
@@ -1629,26 +1638,29 @@ export const updateEntireOrder = asyncErrorHandler(async (req, res, next) => {
 
       for (const [idStr, qty] of newProductMap.entries()) {
         const invItem = inventoryMap.get(idStr);
-        let unitPrice = oldProductMap.get(idStr)?.unitPrice;
         const incomingItem = ordersProducts.find(
           (p) => p.inventoryId.toString() === idStr
         );
 
+        // Determine base price and apply wholesale tier if applicable for current quantity
+        let calculatedPrice = invItem.sellingPrice;
+        if (invItem.wholesalePrices && invItem.wholesalePrices.length > 0) {
+          const sorted = [...invItem.wholesalePrices].sort(
+            (a, b) => b.quantity - a.quantity
+          );
+          const tier = sorted.find((wp) => qty >= wp.quantity);
+          if (tier) calculatedPrice = tier.price;
+        }
+
+        let unitPrice;
         if (
           incomingItem &&
           incomingItem.unitPrice !== undefined &&
           incomingItem.unitPrice !== null
         ) {
           unitPrice = Number(incomingItem.unitPrice);
-        } else if (unitPrice === undefined || unitPrice === null) {
-          unitPrice = invItem.sellingPrice;
-          if (invItem.wholesalePrices && invItem.wholesalePrices.length > 0) {
-            const sorted = [...invItem.wholesalePrices].sort(
-              (a, b) => b.quantity - a.quantity
-            );
-            const tier = sorted.find((wp) => qty >= wp.quantity);
-            if (tier) unitPrice = tier.price;
-          }
+        } else {
+          unitPrice = calculatedPrice;
         }
 
         const buyingPrice =
@@ -1716,7 +1728,7 @@ export const updateEntireOrder = asyncErrorHandler(async (req, res, next) => {
       await order.populate("storefrontId", "locationName locationCode");
       await order.populate(
         "ordersProducts.inventoryId",
-        "productName productCode SKU"
+        "productName productCode SKU category buyingPrice sellingPrice wholesalePrices unitOfMeasure status"
       );
       await order.populate("creditPersonId", "name phone address");
       await order.populate("soldBy", "name role");
